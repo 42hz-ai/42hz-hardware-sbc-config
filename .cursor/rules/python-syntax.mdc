@@ -1,0 +1,39 @@
+---
+description: Use Python 3.14 syntax and idioms project-wide (minimum interpreter 3.14)
+alwaysApply: true
+---
+
+# Python 3.14 syntax
+
+This project targets **Python 3.14+**—see `requires-python` in [`pyproject.toml`](pyproject.toml) and Ruff `target-version = "py314"`. Treat new and edited code for that interpreter; do not add shims for older Python unless you intentionally support multiple versions.
+
+## Do
+
+- After substantive edits, run **`uv run ruff check`** and **`uv run ruff format`** (Ruff uses **py314**).
+- Prefer **modern typing**: builtin generics (`list[str]`, `dict[str, int]`), unions with `|`, optional types as `T | None` where it matches the codebase.
+
+- **Multiple exception types** without `as`—comma form is idiomatic on 3.14; Ruff will format to it:
+
+```python
+except TypeError, ValueError:
+    ...
+```
+
+
+- **With** `except … as exc`, multiple types stay **parenthesized** (required by the language):
+
+```python
+except (OSError, ValueError, KeyError) as exc:
+    ...
+```
+
+- Match style in neighboring modules under **`sbc_config/`** and **`tests/`**.
+
+## Do not
+
+- Add `sys.version_info` or `try/except ImportError` compatibility for Python before 3.14 in this tree unless the project explicitly supports a wider range.
+
+## Checklist
+
+- [ ] Changes follow Ruff + repo conventions
+- [ ] No unintended compatibility branches added under `sbc_config/` or `tests/`

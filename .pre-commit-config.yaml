@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+        args: ["--unsafe"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=lf]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.8
+    hooks:
+      - id: ruff
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: ruff-sort-imports
+        name: ruff-sort-imports
+        entry: uv run ruff check --select I .
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: prettier-markdown
+        name: prettier (markdown)
+        entry: prettier --write
+        language: node
+        additional_dependencies:
+          - "prettier@3.5.3"
+        types: [markdown]

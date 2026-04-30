@@ -1,0 +1,41 @@
+{
+  "folders": [
+    {
+      "name": "SBC Config",
+      "path": "."
+    },
+    {
+      "name": "siblings",
+      "path": "../"
+    }
+  ],
+  "settings": {
+    "terminal.integrated.cwd": "${workspaceFolder:SBC Config}",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "**/.venv": false,
+      "**/.git": false,
+      "42hz-hardware-sbc-config": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "**/uv.lock": true,
+      "42hz-hardware-sbc-config": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "GitHub.copilot",
+      "esbenp.prettier-vscode",
+      "tamasfe.even-better-toml",
+      "redhat.vscode-yaml",
+      "wholroyd.jinja",
+      "ms-python.python",
+      "charliermarsh.ruff",
+      "ms-azuretools.vscode-docker"
+    ]
+  }
+}

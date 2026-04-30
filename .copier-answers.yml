@@ -1,0 +1,16 @@
+# Changes here will be overwritten by Copier when you run `copier update`.
+_commit: v0.2.0
+_src_path: .
+author_email: tim@42hz.ai
+cli_command: sbc
+doc_repo_id: SBCC
+domain: hardware
+include_siblings_workspace: true
+module_name: sbc_config
+node_version: '22'
+project_description: SBC Config — hardware domain
+project_name: SBC Config
+project_slug: sbc-config
+project_version: 0.1.0
+python_version: '3.14'
+use_docker: true

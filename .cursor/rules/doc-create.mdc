@@ -1,0 +1,14 @@
+---
+description: Doc create config for this repo — REPO_ID and active prefixes for the {REPO_ID}-{PREFIX}-{NNNN}-{slug}.md naming scheme.
+alwaysApply: true
+---
+
+# Doc create — repo config
+
+**REPO_ID:** `SBCC`
+
+**Active prefixes:**
+- `CODE` — developer guides, ADRs, onboarding, technical how-tos
+
+
+**Docs directory:** `docs/`

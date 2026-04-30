@@ -1,0 +1,65 @@
+{
+  "name": "SBC Config · hardware (Python 3.14)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "username": "root",
+      "upgradePackages": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // General
+        "GitHub.copilot",
+        "VisualStudioExptTeam.vscodeintellicode",
+        "Gruntfuggly.todo-tree",
+        "bierner.github-markdown-preview",
+        "cschleiden.vscode-github-actions",
+        "ryanluker.vscode-coverage-gutters",
+        "hbenl.vscode-test-explorer",
+        // Formatters
+        "esbenp.prettier-vscode",
+        "yzhang.markdown-all-in-one",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml",
+        "wholroyd.jinja",
+        // Python
+        "ms-python.python",
+        "njpwerner.autodocstring",
+        "LittleFoxTeam.vscode-python-test-adapter",
+        "charliermarsh.ruff",
+        "ms-azuretools.vscode-docker"
+      ]
+    },
+    "settings": {
+      "python.defaultInterpreterPath": "/workspaces/${workspaceFolderBasename}/.venv/bin/python",
+      "jupyter.kernels.filter": [
+        {
+          "path": "/workspaces/${workspaceFolderBasename}/.venv/bin/python",
+          "type": "pythonEnvironment"
+        }
+      ],
+      "jupyter.defaultKernelSpec": "python3",
+      "jupyter.interactiveWindow.creationMode": "perFile",
+      "jupyter.askForKernelRestart": false,
+      "jupyter.notebookKernel.startupTimeout": 60,
+      "jupyter.notebookEditor.insertToolbarButtons": true,
+      "jupyter.notebookFileRoot": "${workspaceFolder}",
+      "jupyter.alwaysTrustNotebooks": true
+    }
+  },
+  "postCreateCommand": "chmod +x .devcontainer/post-create.sh && .devcontainer/post-create.sh",
+
+  "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  "runArgs": ["--network=host"]
+}

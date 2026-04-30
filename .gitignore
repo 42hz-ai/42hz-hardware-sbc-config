@@ -1,0 +1,12 @@
+# IDE
+.vscode
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Development environment
+.venv
+node_modules
+*.env
+.ruff_cache
