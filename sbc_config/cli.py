@@ -7,6 +7,7 @@ import click
 from rich.console import Console
 
 from sbc_config.commands.hello import hello_group
+from sbc_config.commands.imaging import imaging_group
 
 
 @click.group()
@@ -20,6 +21,7 @@ def cli(ctx: click.Context, verbose: bool) -> None:
 
 
 cli.add_command(hello_group)
+cli.add_command(imaging_group)
 
 
 def main() -> None:
