@@ -13,6 +13,7 @@ from rich.console import Console
 from sbc_config.commands.iot.install_pi_docker import install_pi_docker_command
 from sbc_config.modules.iot.pi_docker_install import (
     GET_DOCKER_SCRIPT_URL,
+    classify_install_failure_stderr,
     dry_run_lines,
     effective_remote_user,
     parse_ssh_login_user,
@@ -114,6 +115,40 @@ class TestRunInstallMocks(unittest.TestCase):
             )
         self.assertEqual(lines, [])
         self.assertEqual(len(results), 3)
+
+
+class TestClassifyInstallFailure(unittest.TestCase):
+    def test_ssh_permission_denied_publickey(self) -> None:
+        self.assertEqual(
+            classify_install_failure_stderr(
+                b"hz42@192.168.8.122: Permission denied (publickey,password).\r\n",
+                None,
+            ),
+            "ssh_auth",
+        )
+
+    def test_ssh_auth_from_stdout(self) -> None:
+        self.assertEqual(
+            classify_install_failure_stderr(
+                None,
+                b"Permission denied (publickey).\r\n",
+            ),
+            "ssh_auth",
+        )
+
+    def test_unknown(self) -> None:
+        self.assertIsNone(
+            classify_install_failure_stderr(b"dpkg failed", None),
+        )
+
+    def test_host_not_known(self) -> None:
+        self.assertEqual(
+            classify_install_failure_stderr(
+                b"Could not resolve hostname pi.local\r\n",
+                None,
+            ),
+            "ssh_host",
+        )
 
 
 if __name__ == "__main__":

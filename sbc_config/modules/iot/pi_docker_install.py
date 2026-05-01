@@ -17,6 +17,30 @@ GET_DOCKER_SCRIPT_URL: str = "https://get.docker.com/"
 SSH_BASE: list[str] = ["ssh", "-o", "BatchMode=yes"]
 
 
+def _decode_out(data: bytes | None) -> str:
+    return (data or b"").decode(errors="replace")
+
+
+def classify_install_failure_stderr(
+    stderr: bytes | None, stdout: bytes | None
+) -> str | None:
+    """Return hint key for common failures (*ssh-auth*, *missing-host*) else ``None``."""
+    blob = (_decode_out(stderr) + _decode_out(stdout)).lower()
+    if "permission denied" in blob and (
+        "publickey" in blob or "keyboard-interactive" in blob or "password" in blob
+    ):
+        return "ssh_auth"
+    if "could not resolve hostname" in blob or "name or service not known" in blob:
+        return "ssh_host"
+    if (
+        "connection refused" in blob
+        or "no route to host" in blob
+        or "connection timed out" in blob
+    ):
+        return "ssh_network"
+    return None
+
+
 def parse_ssh_login_user(ssh_target: str) -> str | None:
     """Return the login name if *ssh_target* is ``user@host``; else ``None``.
 

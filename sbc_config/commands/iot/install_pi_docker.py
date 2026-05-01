@@ -6,9 +6,12 @@ import subprocess
 
 import click
 
+from rich.markup import escape
+
 from sbc_config.modules.iot.defaults import ENV_PI_SSH, resolve_pi_ssh
 from sbc_config.modules.iot.pi_docker_install import (
     GET_DOCKER_SCRIPT_URL,
+    classify_install_failure_stderr,
     run_install_via_ssh,
 )
 
@@ -113,16 +116,50 @@ def install_pi_docker_command(
         console.print(f"[red]{exc}[/red]")
         raise click.Abort from exc
     except subprocess.CalledProcessError as exc:
-        console.print("[red]Remote command failed[/red]")
+        stderr_b = getattr(exc, "stderr", None) or b""
+        stdout_b = getattr(exc, "stdout", None) or b""
+        kind = classify_install_failure_stderr(stderr_b, stdout_b)
+        if kind == "ssh_auth":
+            console.print(
+                "[red]SSH authentication failed[/red] (could not log in to the Pi). "
+                "[bold]This is not a sudo problem yet[/bold] — OpenSSH refused the keys "
+                "or credentials before any remote command ran."
+            )
+        elif kind == "ssh_host":
+            console.print("[red]SSH failed:[/red] host name lookup problem.")
+        elif kind == "ssh_network":
+            console.print(
+                "[red]SSH failed:[/red] could not reach host (network / firewall)."
+            )
+        else:
+            console.print("[red]Remote command failed[/red]")
         if exc.stdout:
             console.print(exc.stdout.decode(errors="replace"))
         if exc.stderr:
             console.print(exc.stderr.decode(errors="replace"))
-        console.print(
-            "\n[yellow]Hint:[/yellow] Ensure passwordless sudo on the Pi or run "
-            "equivalent steps with [bold]ssh -t[/bold] manually. "
-            "Non-interactive SSH uses [bold]BatchMode=yes[/bold]."
-        )
+        if kind == "ssh_auth":
+            console.print(
+                "\n[yellow]Hint:[/yellow] From this machine "
+                "[bold]ssh[/bold] must succeed [bold]without typing a password or "
+                "key passphrase[/bold] (this tool uses "
+                "[bold]-o BatchMode=yes[/bold]). Try [bold]ssh-add[/bold], "
+                "fix [bold]~/.ssh/config[/bold] / [bold]IdentityFile[/bold], or verify "
+                f"[bold]{ENV_PI_SSH}[/bold] / --ssh. Interactive password login cannot work here. "
+                "Example:\n\n"
+                f"    ssh {escape(target)}"
+            )
+        elif kind == "ssh_host":
+            console.print("\n[yellow]Hint:[/yellow] Fix the hostname or DNS.")
+        elif kind == "ssh_network":
+            console.print(
+                "\n[yellow]Hint:[/yellow] Ping the Pi, confirm VPN/LAN, firewall."
+            )
+        else:
+            console.print(
+                "\n[yellow]Hint:[/yellow] Ensure passwordless [bold]sudo[/bold] on the Pi "
+                "for SSH sessions, or run equivalent steps with [bold]ssh -t[/bold] manually. "
+                "[bold]BatchMode=yes[/bold] disables interactive SSH auth — fix SSH first."
+            )
         raise click.Abort from exc
 
     if dry_run:
