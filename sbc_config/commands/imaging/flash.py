@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 
 from pathlib import Path
 
@@ -44,6 +45,11 @@ def flash_command(
         "[bold]Flash command (verify OF= is your SD/USB reader, not a system disk):[/bold]"
     )
     console.print(f"  sudo {line}")
+    if sys.platform == "darwin":
+        console.print(
+            "[dim]If dd: Resource busy → sudo diskutil unmountDisk diskN "
+            "(N from /dev/rdiskN, e.g. rdisk4 → disk4). Then retry dd.[/dim]"
+        )
     if not execute:
         console.print(
             "[dim]Re-run with --execute to run dd from this environment (still needs root).[/dim]"

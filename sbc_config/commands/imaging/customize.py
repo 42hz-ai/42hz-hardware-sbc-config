@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from sbc_config.commands.imaging.feedback import notify_for_console
 from sbc_config.modules.imaging import ImagingError, customize_image
 
 
@@ -34,7 +35,11 @@ def _read_password(password: str | None, password_file: Path | None) -> str:
     help="Writable output .img path (will be overwritten).",
 )
 @click.option(
-    "--username", required=True, help="Linux login name (RPi OS has no default user)."
+    "--username",
+    required=True,
+    help=(
+        "Linux login: must start with a letter; only a-z, digits, hyphens (RPi OS rule)."
+    ),
 )
 @click.option(
     "--password",
@@ -59,6 +64,14 @@ def _read_password(password: str | None, password_file: Path | None) -> str:
     default=None,
     help="Optional wpa_supplicant.conf copied to the boot partition root.",
 )
+@click.option(
+    "--hostname",
+    default=None,
+    help=(
+        "System hostname (single DNS label, lower-case). Sets /etc/hostname on the image; "
+        "omit to keep raspberrypi."
+    ),
+)
 @click.pass_context
 def customize_command(
     ctx: click.Context,
@@ -69,6 +82,7 @@ def customize_command(
     password_file: Path | None,
     boot_partition: str | None,
     wpa_supplicant: Path | None,
+    hostname: str | None,
 ) -> None:
     """Create ssh + userconf.txt on the FAT boot partition (headless SSH on first boot)."""
     console = ctx.obj["console"]
@@ -81,9 +95,10 @@ def customize_command(
             output,
             username=username,
             password=secret,
-            console=console,
+            notify=notify_for_console(console),
             boot_partition=boot_partition,
             wpa_supplicant=wpa_supplicant,
+            hostname=hostname,
         )
     except ImagingError as exc:
         console.print(f"[red]{exc}[/red]")

@@ -1,6 +1,3 @@
-# Pin a Raspberry Pi OS Lite arm64 release for reproducible imaging.
-# Override paths with `sbc imaging --release-file ...`.
-
+# RPi OS Lite arm64 — Trixie (2026-04-21). Namespace key: trixie-2026-04-21-lite-arm64
 image_url: "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-04-21/2026-04-21-raspios-trixie-arm64-lite.img.xz"
-# Published next to the .img.xz on downloads.raspberrypi.com (SHA-256 of the xz file).
 sha256_url: "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-04-21/2026-04-21-raspios-trixie-arm64-lite.img.xz.sha256"

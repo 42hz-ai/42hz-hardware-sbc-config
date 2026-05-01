@@ -1,0 +1,2 @@
+# Names the default key under imaging/releases/<key>.yaml when you omit --release.
+default: trixie-2026-04-21-lite-arm64

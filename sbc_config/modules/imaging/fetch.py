@@ -5,21 +5,14 @@ from __future__ import annotations
 import hashlib
 import re
 
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import unquote
 
 import requests
 
-from rich.console import Console
-from rich.progress import (
-    BarColumn,
-    DownloadColumn,
-    Progress,
-    TextColumn,
-    TransferSpeedColumn,
-)
-
 from sbc_config.modules.imaging.release_spec import PinnedRelease
+from sbc_config.modules.imaging.types import ByteProgressFactory, Notify
 
 
 def _sha256_file_payload(content: str, expected_filename: str) -> str:
@@ -65,7 +58,8 @@ def download_xz(
     release: PinnedRelease,
     dest: Path,
     *,
-    console: Console,
+    notify: Notify | None = None,
+    progress: ByteProgressFactory | None = None,
     skip_checksum: bool = False,
     force: bool = False,
     session: requests.Session | None = None,
@@ -75,46 +69,47 @@ def download_xz(
     sess = session or requests.Session()
     expected_hex: str | None = None
     if not skip_checksum:
-        console.print("[cyan]Fetching checksum…[/cyan]")
+        if notify:
+            notify("info", "Fetching checksum…")
         expected_hex = expected_sha256_hex(release, session=sess)
 
     if dest.exists() and not force and expected_hex is not None:
         try:
             verify_xz_sha256(dest, expected_hex)
         except ValueError:
-            console.print(
-                "[yellow]Cached image failed verification; re-downloading.[/yellow]"
-            )
+            if notify:
+                notify("warn", "Cached image failed verification; re-downloading.")
         else:
-            console.print(f"[green]Up to date:[/green] {dest}")
+            if notify:
+                notify("ok", f"Up to date: {dest}")
             return dest
 
     url = str(release.image_url)
-    console.print(f"[cyan]Downloading[/cyan] {url}")
+    if notify:
+        notify("info", f"Downloading {url}")
     response = sess.get(url, stream=True, timeout=120)
     response.raise_for_status()
     total = int(response.headers.get("content-length", "0") or 0)
 
     digest = hashlib.sha256()
     tmp = dest.with_suffix(dest.suffix + ".partial")
+    label = unquote(Path(release.image_url.path).name)
 
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        DownloadColumn(),
-        TransferSpeedColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task(
-            unquote(Path(release.image_url.path).name), total=total or None
-        )
+    def _write_stream(advance: Callable[[int], None] | None) -> None:
         with tmp.open("wb") as handle:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
                 if not chunk:
                     continue
                 handle.write(chunk)
                 digest.update(chunk)
-                progress.update(task, advance=len(chunk))
+                if advance is not None:
+                    advance(len(chunk))
+
+    if progress is not None:
+        with progress(label, total or None) as advance:
+            _write_stream(advance)
+    else:
+        _write_stream(None)
 
     if expected_hex is not None:
         actual = digest.hexdigest().lower()
@@ -124,5 +119,6 @@ def download_xz(
             raise ValueError(msg)
 
     tmp.replace(dest)
-    console.print(f"[green]Wrote[/green] {dest}")
+    if notify:
+        notify("ok", f"Wrote {dest}")
     return dest

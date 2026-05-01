@@ -15,9 +15,5 @@ def repo_root() -> Path:
     raise RuntimeError(msg)
 
 
-def default_release_file() -> Path:
-    return repo_root() / "imaging" / "pinned_release.yaml"
-
-
 def default_cache_dir() -> Path:
     return repo_root() / ".cache" / "imaging"

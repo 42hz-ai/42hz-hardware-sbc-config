@@ -9,6 +9,14 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# sbc imaging: guestfish / virt-copy-in (image may predate Dockerfile RUN layer)
+if ! command -v guestfish >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+    echo -e "${BLUE}Installing libguestfs-tools for sbc imaging...${NC}"
+    apt-get update
+    apt-get install -y libguestfs-tools openssl xz-utils
+    rm -rf /var/lib/apt/lists/*
+fi
+
 if [ ! -d ".git" ]; then
     echo -e "${BLUE}Initializing git repository...${NC}"
     # Must run before git init; configure_git.sh is not sourced by this script.

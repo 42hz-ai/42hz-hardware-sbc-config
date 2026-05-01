@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, HttpUrl, field_validator
 
 
 class PinnedRelease(BaseModel):
-    """Fields from `imaging/pinned_release.yaml`."""
+    """Fields from imaging/releases/<slug>.yaml (or any explicit --release-file path)."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 

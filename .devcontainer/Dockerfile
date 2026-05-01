@@ -52,12 +52,12 @@ ENV UV_LINK_MODE=copy
 # libguestfs: use qemu in user mode when /dev/kvm is unavailable (typical in containers).
 ENV LIBGUESTFS_BACKEND=direct
 
-# CLI networking diagnostics (ping, dig, wget, curl, ss, etc.)
+# CLI networking diagnostics (ping, dig, wget, curl, ss, nc, etc.)
 RUN apt-get update && \
-  apt-get install -y iputils-ping dnsutils curl wget iproute2 && \
+  apt-get install -y iputils-ping dnsutils curl wget iproute2 netcat-openbsd && \
   rm -rf /var/lib/apt/lists/*
 
-# Raspberry Pi imaging (sbc imaging): libguestfs + xz align with Python lzma; openssl for userconf.
+# Raspberry Pi imaging (sbc imaging): guestfs (virt-copy-in, virt-customize, guestfish); openssl for userconf.
 RUN apt-get update && \
   apt-get install -y libguestfs-tools openssl xz-utils && \
   rm -rf /var/lib/apt/lists/*
