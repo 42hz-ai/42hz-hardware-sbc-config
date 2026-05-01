@@ -18,6 +18,7 @@ from sbc_config.commands.iot import (
     fetch_credentials,
     list_orphan_certs,
     mqtt_test,
+    sync_to_pi,
 )
 from sbc_config.modules.iot.client import DEFAULT_REGION
 
@@ -48,6 +49,7 @@ def iot_group(ctx: click.Context, profile: str | None, region: str) -> None:
 iot_group.add_command(describe_endpoint.describe_endpoint_command)
 iot_group.add_command(fetch_credentials.fetch_credentials_command)
 iot_group.add_command(mqtt_test.mqtt_test_command)
+iot_group.add_command(sync_to_pi.sync_to_pi_command)
 iot_group.add_command(decommission_thing.decommission_thing_command)
 iot_group.add_command(list_orphan_certs.list_orphan_certs_command)
 

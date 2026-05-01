@@ -9,9 +9,13 @@ import click
 from sbc_config.modules.iot.client import build_session
 from sbc_config.modules.iot.credentials import (
     AMAZON_ROOT_CA_URLS,
-    DEFAULT_OUT_DIR,
+    ENDPOINT_FILENAME,
     fetch_secret_bundle,
     write_bundle_to_disk,
+)
+from sbc_config.modules.iot.defaults import (
+    HELLO_WORLD_THING_NAME,
+    default_fetch_out_dir,
 )
 from sbc_config.modules.iot.endpoint import describe_data_ats_endpoint
 
@@ -23,7 +27,8 @@ def _default_secret_name(thing_name: str) -> str:
 @click.command("fetch-credentials")
 @click.option(
     "--thing-name",
-    required=True,
+    default=HELLO_WORLD_THING_NAME,
+    show_default=True,
     metavar="NAME",
     help="IoT Thing name (the secret defaults to iot/things/<NAME>/credentials).",
 )
@@ -36,9 +41,12 @@ def _default_secret_name(thing_name: str) -> str:
 @click.option(
     "--out-dir",
     type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
-    default=DEFAULT_OUT_DIR,
-    show_default=True,
-    help="Target directory for thing-cert.pem, thing-private.key, cas/.",
+    default=default_fetch_out_dir,
+    show_default="$SBC_IOT_FETCH_OUT_DIR or /etc/aws-iot",
+    help=(
+        "Target directory for thing-cert.pem, thing-private.key, cas/. "
+        "Override via $SBC_IOT_FETCH_OUT_DIR (e.g. 'aws-iot-bundle' for laptop use)."
+    ),
 )
 @click.option(
     "--skip-cas",
@@ -100,6 +108,11 @@ def fetch_credentials_command(
     console.print(
         f"[green]Wrote[/green] key       → {written['private_key']} (mode 0600)"
     )
+    if "endpoint" in written:
+        console.print(
+            f"[green]Wrote[/green] endpoint  → {written['endpoint']} "
+            f"({ENDPOINT_FILENAME}; read by Pi entrypoint)"
+        )
     if "cas_dir" in written:
         ca_count = len(AMAZON_ROOT_CA_URLS)
         console.print(

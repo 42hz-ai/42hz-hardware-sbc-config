@@ -28,6 +28,7 @@ AMAZON_ROOT_CA_URLS: dict[str, str] = {
 DEFAULT_OUT_DIR = Path("/etc/aws-iot")
 CERT_FILENAME = "thing-cert.pem"
 KEY_FILENAME = "thing-private.key"
+ENDPOINT_FILENAME = "endpoint.txt"
 CAS_SUBDIR = "cas"
 
 
@@ -92,7 +93,7 @@ def write_bundle_to_disk(
     download_cas: bool = True,
     overwrite: bool = True,
 ) -> dict[str, Path]:
-    """Write cert, key, and (optionally) CA1-CA4 to ``out_dir``.
+    """Write cert, key, CA1-CA4, and optional endpoint sidecar to ``out_dir``.
 
     Layout::
 
@@ -102,8 +103,14 @@ def write_bundle_to_disk(
         │   ├── AmazonRootCA2.pem
         │   ├── AmazonRootCA3.pem
         │   └── AmazonRootCA4.pem
+        ├── endpoint.txt          (when SecretBundle.iot_data_endpoint is set)
         ├── thing-cert.pem
-        └── thing-private.key  (mode 0600)
+        └── thing-private.key     (mode 0600)
+
+    When ``bundle.iot_data_endpoint`` is populated, ``endpoint.txt`` is
+    written alongside the PEMs (mode 0644, single newline-terminated line).
+    The Pi-side Docker entrypoint reads this file so ``mqtt-test`` can run
+    without ``--endpoint`` or any AWS API call on the device.
 
     Returns a mapping of role → path for downstream consumers.
     """
@@ -115,6 +122,17 @@ def write_bundle_to_disk(
     _write_file(key_path, bundle.private_key, mode=0o600, overwrite=overwrite)
 
     written: dict[str, Path] = {"certificate": cert_path, "private_key": key_path}
+
+    if bundle.iot_data_endpoint:
+        endpoint_path = out_dir / ENDPOINT_FILENAME
+        _write_file(
+            endpoint_path,
+            bundle.iot_data_endpoint.strip() + "\n",
+            mode=0o644,
+            overwrite=overwrite,
+        )
+        written["endpoint"] = endpoint_path
+
     if download_cas:
         cas_dir = out_dir / CAS_SUBDIR
         cas_dir.mkdir(parents=True, exist_ok=True)

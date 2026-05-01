@@ -1,0 +1,29 @@
+# sbc-iot-runner compose — Alternative A Pi MQTT runner (SBCC-INFRA-0001)
+#
+# Usage (from Pi, after `sbc iot sync-to-pi`):
+#
+#   cd ~/sbc-config/infra/docker/iot-runner
+#   docker compose build
+#   docker compose run --rm iot-runner iot mqtt-test
+#
+# The entrypoint shim auto-injects --endpoint from ~/iot-data/endpoint.txt
+# (written by `sbc iot fetch-credentials` on the operator laptop).
+# Override any env with a local .env file (see .env.example).
+
+services:
+  iot-runner:
+    build:
+      context: ../../..          # repo root (pyproject.toml, uv.lock, sbc_config/)
+      dockerfile: infra/docker/iot-runner/Dockerfile
+      args:
+        SBC_UID: "${SBC_UID:-1000}"   # match Pi host user UID for 0600 key reads
+    image: sbc-iot-runner:local
+    volumes:
+      # PEM bundle synced by `sbc iot sync-to-pi` (read-only in path A).
+      - "${IOT_DATA_DIR:-${HOME}/iot-data}:/data/aws-iot:ro"
+    environment:
+      THING_NAME: "${THING_NAME:-hw-pi-001}"
+      AWS_REGION: "${AWS_REGION:-us-west-2}"
+      # IOT_DATA_DIR: path inside container where entrypoint looks for endpoint.txt
+      IOT_DATA_DIR: /data/aws-iot
+    # network_mode: host   # uncomment only if bridge NAT causes TLS/DNS issues

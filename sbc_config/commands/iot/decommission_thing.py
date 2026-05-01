@@ -7,6 +7,7 @@ import click
 from rich.table import Table
 
 from sbc_config.modules.iot.client import build_session
+from sbc_config.modules.iot.defaults import HELLO_WORLD_THING_NAME
 from sbc_config.modules.iot.lifecycle import decommission_thing
 
 
@@ -17,9 +18,14 @@ def _default_secret_name(thing_name: str) -> str:
 @click.command("decommission-thing")
 @click.option(
     "--thing-name",
-    required=True,
+    default=HELLO_WORLD_THING_NAME,
+    show_default=True,
     metavar="NAME",
-    help="IoT Thing to detach + tear down.",
+    help=(
+        "IoT Thing to detach + tear down. "
+        f"[bold red]WARNING:[/bold red] default '{HELLO_WORLD_THING_NAME}' targets "
+        "the hello-world Thing — always verify before omitting this flag."
+    ),
 )
 @click.option(
     "--policy-name",

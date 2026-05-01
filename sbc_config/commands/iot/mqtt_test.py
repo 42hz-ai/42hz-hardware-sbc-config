@@ -13,6 +13,7 @@ from sbc_config.modules.iot.credentials import (
     DEFAULT_OUT_DIR,
     KEY_FILENAME,
 )
+from sbc_config.modules.iot.defaults import HELLO_WORLD_THING_NAME
 from sbc_config.modules.iot.endpoint import describe_data_ats_endpoint
 from sbc_config.modules.iot.mqtt5 import publish_once
 
@@ -20,9 +21,13 @@ from sbc_config.modules.iot.mqtt5 import publish_once
 @click.command("mqtt-test")
 @click.option(
     "--thing-name",
-    required=True,
+    default=HELLO_WORLD_THING_NAME,
+    show_default=True,
     metavar="NAME",
-    help="IoT Thing name (used as MQTT clientId — must match the policy variable).",
+    help=(
+        "IoT Thing name (used as MQTT clientId — must match the cert/policy). "
+        f"Defaults to the hello-world Thing '{HELLO_WORLD_THING_NAME}'."
+    ),
 )
 @click.option(
     "--topic",
