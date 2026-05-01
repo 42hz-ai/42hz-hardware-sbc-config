@@ -76,6 +76,13 @@ explicit flag.  Set to ``aws-iot-bundle`` in a dev shell profile to keep
 credentials out of ``/etc``.
 """
 
+ENV_SSH_PUBLIC_KEY: str = "SBC_IOT_SSH_PUBLIC_KEY"
+"""Env var for the SSH **public** key path (``.pub``).
+
+Used by ``sbc iot add-pi-ssh-key`` when ``--public-key`` is omitted and the usual
+default files are absent under ``~/.ssh/``.
+"""
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

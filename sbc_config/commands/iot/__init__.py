@@ -13,6 +13,7 @@ from __future__ import annotations
 import click
 
 from sbc_config.commands.iot import (
+    add_pi_ssh_key,
     decommission_thing,
     describe_endpoint,
     fetch_credentials,
@@ -51,6 +52,7 @@ iot_group.add_command(describe_endpoint.describe_endpoint_command)
 iot_group.add_command(fetch_credentials.fetch_credentials_command)
 iot_group.add_command(mqtt_test.mqtt_test_command)
 iot_group.add_command(sync_to_pi.sync_to_pi_command)
+iot_group.add_command(add_pi_ssh_key.add_pi_ssh_key_command)
 iot_group.add_command(install_pi_docker.install_pi_docker_command)
 iot_group.add_command(decommission_thing.decommission_thing_command)
 iot_group.add_command(list_orphan_certs.list_orphan_certs_command)

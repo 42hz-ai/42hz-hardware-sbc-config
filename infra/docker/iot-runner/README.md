@@ -12,9 +12,20 @@ Pi      ──docker compose run───▶  mqtt-test  ──MQTT 8883 TLS─�
 
 ---
 
-## 1. Pi prerequisites — Docker Engine and Compose plugin
+## 1. Pi prerequisites — SSH key, then Docker Engine and Compose plugin
 
-Stock Raspberry Pi OS images do not include Docker. Install it once per Pi **from your laptop**
+**SSH first:** Commands like **`install-pi-docker`** and **`sync-to-pi`** use **`ssh -o BatchMode=yes`**
+(so they cannot prompt for a password). If you only have password SSH today, bootstrap your pubkey once:
+
+```bash
+export SBC_IOT_PI_SSH="hz42@192.168.8.122"
+uv run sbc iot add-pi-ssh-key --dry-run    # preview
+uv run sbc iot add-pi-ssh-key              # ssh-copy-id (may prompt Pi password); see --help
+```
+
+Then verify **`ssh "$SBC_IOT_PI_SSH"`** works without typing a password (or **`ssh-add`** your key passphrase).
+
+Stock Raspberry Pi OS images do not include Docker. Install Docker once per Pi **from your laptop**
 using the repo CLI (streams Docker’s **[get.docker.com](https://get.docker.com/)** convenience
 installer over SSH — see **`sbc iot install-pi-docker --help`** for the curl|sh trust notes):
 
