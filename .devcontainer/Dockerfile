@@ -30,6 +30,10 @@ RUN apt install -y ca-certificates gnupg && \
 # Install prettier
 RUN npm install -g prettier
 
+# Install AWS CDK CLI globally so `cdk synth` / `cdk deploy` work in the
+# devcontainer. See docs/SBCC-INFRA-0001-iot-hello-world-cdk.md.
+RUN npm install -g aws-cdk
+
 # Install vim (fixed: update package lists first)
 RUN apt-get update && \
   apt-get install -y vim && \
@@ -51,6 +55,13 @@ ENV UV_LINK_MODE=copy
 
 # libguestfs: use qemu in user mode when /dev/kvm is unavailable (typical in containers).
 ENV LIBGUESTFS_BACKEND=direct
+
+# jsii (the aws-cdk-lib runtime bridge) prints a 14-line banner on Node 20.
+# Cursor-server bundles Node 20 and prepends it to PATH, so any shell launched
+# inside Cursor sees the banner. Real deploys (CI / outside Cursor) get the
+# devcontainer's Node 22 and would not need this. Revisit when Cursor-server
+# ships Node 22 (or jsii drops Node 20 entirely after 2026-10-30).
+ENV JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION=1
 
 # CLI networking diagnostics (ping, dig, wget, curl, ss, nc, etc.)
 RUN apt-get update && \

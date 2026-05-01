@@ -8,6 +8,7 @@ alwaysApply: true
 **REPO_ID:** `SBCC`
 
 **Active prefixes:**
+- `INFRA` — infrastructure, CDK, AWS, deployments
 - `CODE` — developer guides, ADRs, onboarding, technical how-tos
 
 

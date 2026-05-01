@@ -1,0 +1,48 @@
+---
+description: Do not reference deprecated or shut-down AWS IoT services; use current alternatives and AWS lifecycle docs.
+alwaysApply: true
+---
+
+# AWS IoT — deprecated / retired (do not use in new work)
+
+When suggesting architecture, docs, or code for this repo, **do not** recommend or cite these AWS offerings for **new** designs. Prefer **AWS IoT Core**, **AWS IoT SiteWise**, **IoT Greengrass v2**, **EventBridge**, **Lambda**, **Managed Flink**, etc., as appropriate. Official lists change — verify against AWS:
+
+- [Services in sunset](https://docs.aws.amazon.com/general/latest/gr/sunset_services.html)
+- [Services in full shutdown](https://docs.aws.amazon.com/general/latest/gr/full_shutdown_services.html)
+
+**Name check:** The event-detection service is **AWS IoT Events** (not "IoTea Events"). It is **not** a greenfield choice.
+
+## Do not reference (IoT-focused)
+
+| Service | Status | Use instead (directional) |
+| --- | --- | --- |
+| **AWS IoT Events** | Sunset 2026-05-20 — [end of support](https://docs.aws.amazon.com/iotevents/latest/developerguide/iotevents-end-of-support.html) | EventBridge, Lambda, Step Functions, stream processing; follow AWS migration notes |
+| **AWS IoT Analytics** | Full shutdown (see AWS table) | S3 + Athena/Glue, OpenSearch, data lake patterns; AWS IoT/blog migration themes |
+| **AWS IoT 1-Click** | Full shutdown | Device provisioning + your own app/API patterns |
+| **Fleet Hub** (feature of **AWS IoT Device Management**) | Full shutdown | [Fleet Hub EOL FAQ](https://docs.aws.amazon.com/iot/latest/fleethubuserguide/fleethub-end-of-life.html); other device ops tooling |
+| **AWS IoT RoboRunner** | Full shutdown | Current AWS robotics guidance |
+| **AWS IoT Things Graph** | Full shutdown | **AWS IoT TwinMaker** or custom integration (see AWS guidance) |
+| **AWS IoT Greengrass v1** | Sunset — migrate to v2 | **AWS IoT Greengrass v2** (Nucleus 2.17.0 / Nucleus Lite 2.5.0) |
+
+## Closely related (often paired with IoT stacks)
+
+| Service | Status |
+| --- | --- |
+| **Amazon Lookout for Equipment** | Sunset — do not propose for new long-term designs |
+| **AWS Panorama** | Sunset — do not propose for new edge/vision pipelines |
+
+## Deprecated APIs / patterns within still-supported services
+
+| Pattern | Replace with |
+| --- | --- |
+| `iot:AttachPrincipalPolicy` / `iot:DetachPrincipalPolicy` | **`iot:AttachPolicy`** / **`iot:DetachPolicy`** (target = cert ARN) |
+| Endpoint type `iot:Data` (legacy VeriSign chain) | **`iot:Data-ATS`** (Amazon Trust Services chain — bundle CA1-CA4 on devices) |
+| CDK `Provider` `role` prop | **`framework_on_event_role`** (and `framework_complete_and_timeout_role` if `is_complete_handler` is set) |
+| CDK `aws_lambda.Function#log_retention` | Explicit `aws_logs.LogGroup` passed to `log_group=` |
+| MQTT 3.1.1 (when client supports v5) | **MQTT 5** via `awsiotsdk` `mqtt5_client_builder.mtls_from_path` |
+
+## Still OK to reference (examples)
+
+**AWS IoT Core**, **AWS IoT SiteWise**, **AWS IoT Greengrass v2**, **AWS IoT Device Management** (excluding removed Fleet Hub), **IoT TwinMaker**, **IoT FleetWise**, **IoT Wireless**, **Device Advisor**, etc., subject to current AWS documentation.
+
+If unsure whether a service exists, **check the AWS product page or the two lifecycle tables above** before recommending it.

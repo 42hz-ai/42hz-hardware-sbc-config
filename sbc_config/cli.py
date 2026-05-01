@@ -8,6 +8,7 @@ from rich.console import Console
 
 from sbc_config.commands.hello import hello_group
 from sbc_config.commands.imaging import imaging_group
+from sbc_config.commands.iot import iot_group
 
 
 @click.group()
@@ -22,6 +23,7 @@ def cli(ctx: click.Context, verbose: bool) -> None:
 
 cli.add_command(hello_group)
 cli.add_command(imaging_group)
+cli.add_command(iot_group)
 
 
 def main() -> None:

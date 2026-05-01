@@ -1,0 +1,27 @@
+{
+  "_comment": "Copy to cdk.context.json (gitignored) and edit. `thingNames` is the source of truth for how many Things the stack creates; the per-Thing-scoped IoT policy is shared across all of them.",
+  "thingNames": ["hw-pi-001"],
+  "policyName": "iot-hello-world",
+  "_phaseB_example": {
+    "thingNames": [
+      "hw-pi-001",
+      "hw-pi-002",
+      "hw-pi-003",
+      "hw-pi-004",
+      "hw-pi-005",
+      "hw-pi-006",
+      "hw-pi-007",
+      "hw-pi-008",
+      "hw-pi-009",
+      "hw-pi-010",
+      "hw-pi-011",
+      "hw-pi-012",
+      "hw-pi-013",
+      "hw-pi-014",
+      "hw-pi-015",
+      "hw-pi-016",
+      "hw-pi-017"
+    ],
+    "policyName": "iot-hello-world"
+  }
+}
