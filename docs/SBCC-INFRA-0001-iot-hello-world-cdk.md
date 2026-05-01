@@ -4,16 +4,18 @@
 
 ## At a glance
 
-| Topic          | Value                                                                                                                                     |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Stack          | `IotHelloStack` ([`infra/cdk/stacks/iot_hello_stack.py`](../infra/cdk/stacks/iot_hello_stack.py))                                         |
-| Account        | **`iotea-workloads-spikes-sitewise`** (Workloads ▸ Spikes OU; defined in `iotea-infrastructure-identity-center`)                          |
-| Region         | **`us-west-2`**                                                                                                                           |
-| CLI profile    | **`spikes-sitewise`** (mirrors `iotea-spike-preston-sitewise`)                                                                            |
-| CDK            | Python — `aws-cdk-lib >= 2.200`, `constructs ~= 10` (root `pyproject.toml [project.optional-dependencies] cdk`)                           |
-| Lambda runtime | `lambda.Runtime.PYTHON_3_13`                                                                                                              |
-| Operator CLI   | **`sbc iot {describe-endpoint, fetch-credentials, mqtt-test, decommission-thing, list-orphan-certs}`**                                    |
-| Shared spine   | [`sbc_config/modules/iot/lifecycle.py`](../sbc_config/modules/iot/lifecycle.py) — imported by both the CLI and the custom-resource Lambda |
+| Topic          | Value                                                                                                                                                                                                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stack          | `IotHelloStack` ([`infra/cdk/stacks/iot_hello_stack.py`](../infra/cdk/stacks/iot_hello_stack.py))                                                                                                                                                                                 |
+| Account        | **`iotea-workloads-spikes-sitewise`** — **`867492128540`** (`us-west-2`; Workloads ▸ Spikes OU). Same id as the [`iotea-spike-preston-sitewise`](/workspaces/iotea-spike-preston-sitewise/README.md) SSO table — **confirm in the AWS access portal** if your assignments differ. |
+| Region         | **`us-west-2`**                                                                                                                                                                                                                                                                   |
+| CLI profile    | **`spikes-sitewise`** (mirrors `iotea-spike-preston-sitewise`)                                                                                                                                                                                                                    |
+| CDK            | Python — `aws-cdk-lib >= 2.200`, `constructs ~= 10` (root `pyproject.toml [project.optional-dependencies] cdk`)                                                                                                                                                                   |
+| Lambda runtime | `lambda.Runtime.PYTHON_3_13`                                                                                                                                                                                                                                                      |
+| Operator CLI   | **`sbc iot {describe-endpoint, fetch-credentials, mqtt-test, sync-to-pi, install-pi-docker, decommission-thing, list-orphan-certs}`**                                                                                                                                             |
+| Shared spine   | [`sbc_config/modules/iot/lifecycle.py`](../sbc_config/modules/iot/lifecycle.py) — imported by both the CLI and the custom-resource Lambda                                                                                                                                         |
+
+**IT / network stakeholders:** egress, firewalls, PrivateLink, and hostname vs IP policy are summarized in **[SBCC-INFRA-0002 — IoT Core network & egress (IT briefing)](SBCC-INFRA-0002-iot-core-network-it-briefing.md)**.
 
 ## Why
 
@@ -106,13 +108,16 @@ Tests in [`tests/test_iot_lifecycle.py`](../tests/test_iot_lifecycle.py) lock th
 ### One-time setup
 
 ```bash
-uv sync --extra cdk
-cp .devcontainer/aws-config.example ~/.aws/config   # then edit placeholders
+uv sync --all-extras
+cp .devcontainer/aws-config.example ~/.aws/config   # merge if ~/.aws/config exists; example has org SSO URL + account id
 aws sso login --profile spikes-sitewise --use-device-code
 export AWS_PROFILE=spikes-sitewise
+aws sts get-caller-identity   # optional: expect account 867492128540
 cd infra/cdk
-cdk bootstrap aws://<sitewise-spike-account-id>/us-west-2
+cdk bootstrap aws://867492128540/us-west-2
 ```
+
+One-time per account/region. Skip if this environment is already bootstrapped (e.g. Preston deploy used the same account + region).
 
 ### Deploy / re-deploy
 

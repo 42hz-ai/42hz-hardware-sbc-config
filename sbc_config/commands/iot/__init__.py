@@ -16,6 +16,7 @@ from sbc_config.commands.iot import (
     decommission_thing,
     describe_endpoint,
     fetch_credentials,
+    install_pi_docker,
     list_orphan_certs,
     mqtt_test,
     sync_to_pi,
@@ -40,7 +41,7 @@ from sbc_config.modules.iot.client import DEFAULT_REGION
 )
 @click.pass_context
 def iot_group(ctx: click.Context, profile: str | None, region: str) -> None:
-    """AWS IoT Core operator commands (hello world + decommission helpers)."""
+    """AWS IoT Core operator commands (hello world + Pi prep + decommission helpers)."""
     ctx.ensure_object(dict)
     ctx.obj["aws_profile"] = profile
     ctx.obj["aws_region"] = region
@@ -50,6 +51,7 @@ iot_group.add_command(describe_endpoint.describe_endpoint_command)
 iot_group.add_command(fetch_credentials.fetch_credentials_command)
 iot_group.add_command(mqtt_test.mqtt_test_command)
 iot_group.add_command(sync_to_pi.sync_to_pi_command)
+iot_group.add_command(install_pi_docker.install_pi_docker_command)
 iot_group.add_command(decommission_thing.decommission_thing_command)
 iot_group.add_command(list_orphan_certs.list_orphan_certs_command)
 

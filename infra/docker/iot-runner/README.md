@@ -14,49 +14,24 @@ Pi      ──docker compose run───▶  mqtt-test  ──MQTT 8883 TLS─�
 
 ## 1. Pi prerequisites — Docker Engine and Compose plugin
 
-Stock Raspberry Pi OS images do not include Docker. Install it once per Pi
-following the official [Docker Engine on Debian](https://docs.docker.com/engine/install/debian/) guide (arm64):
+Stock Raspberry Pi OS images do not include Docker. Install it once per Pi **from your laptop**
+using the repo CLI (streams Docker’s **[get.docker.com](https://get.docker.com/)** convenience
+installer over SSH — see **`sbc iot install-pi-docker --help`** for the curl|sh trust notes):
 
 ```bash
-# Remove any distro docker.io shim (harmless if absent)
-sudo apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
-
-# Docker apt prerequisites
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg
-
-# Docker GPG key
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg \
-  | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-# Docker apt repo (arm64, bookworm)
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
-  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Install Docker CE + Compose v2
-sudo apt-get update
-sudo apt-get install -y \
-  docker-ce docker-ce-cli containerd.io \
-  docker-buildx-plugin docker-compose-plugin
-
-# Start and enable daemon
-sudo systemctl enable --now docker
+# From repo root on the laptop
+export SBC_IOT_PI_SSH="hz42@192.168.8.122"   # or pass --ssh
+uv run sbc iot install-pi-docker --dry-run   # preview
+uv run sbc iot install-pi-docker             # installs + verifies (passwordless sudo on Pi)
 ```
 
-**Post-install — add your user to the docker group** (re-login or `newgrp docker` to apply):
+If your SSH target is host-only (`~/.ssh/config` alias), add **`--remote-user YOUR_PI_LOGIN`**.
 
-```bash
-sudo usermod -aG docker "$USER"
-```
+**Auditors / alternatives:** [Docker Engine — Debian](https://docs.docker.com/engine/install/debian/),
+[Linux post-install](https://docs.docker.com/engine/install/linux-postinstall/).
+Use **`--skip-verify`** to omit `hello-world`; use **`--no-add-user-to-docker-group`** if you will use **`sudo docker`** / **`sudo docker compose`** only.
 
-Alternatively, prefix all `docker` calls with `sudo` — both approaches work.
-
-**Verify:**
+**Manual verify** (optional):
 
 ```bash
 docker version
