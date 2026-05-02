@@ -104,7 +104,10 @@ class TestDefaults(unittest.TestCase):
         self.assertEqual(HELLO_WORLD_THING_NAME, "hw-pi-001")
 
     def test_sync_default_bundle_relative(self) -> None:
-        self.assertEqual(SYNC_DEFAULT_BUNDLE_RELATIVE, Path("aws-iot-bundle"))
+        self.assertEqual(
+            SYNC_DEFAULT_BUNDLE_RELATIVE,
+            Path("aws-iot-bundles") / HELLO_WORLD_THING_NAME,
+        )
 
     def test_resolve_pi_ssh_explicit(self) -> None:
         self.assertEqual(resolve_pi_ssh("pi@10.0.0.1"), "pi@10.0.0.1")

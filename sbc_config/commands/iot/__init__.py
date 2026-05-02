@@ -17,6 +17,7 @@ from sbc_config.commands.iot import (
     decommission_thing,
     describe_endpoint,
     fetch_credentials,
+    install_greengrass,
     install_pi_docker,
     list_orphan_certs,
     mqtt_test,
@@ -50,6 +51,7 @@ def iot_group(ctx: click.Context, profile: str | None, region: str) -> None:
 
 iot_group.add_command(describe_endpoint.describe_endpoint_command)
 iot_group.add_command(fetch_credentials.fetch_credentials_command)
+iot_group.add_command(install_greengrass.install_greengrass_command)
 iot_group.add_command(mqtt_test.mqtt_test_command)
 iot_group.add_command(sync_to_pi.sync_to_pi_command)
 iot_group.add_command(add_pi_ssh_key.add_pi_ssh_key_command)

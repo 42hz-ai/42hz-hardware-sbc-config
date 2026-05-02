@@ -5,6 +5,10 @@ Resources (per stack):
 * **One** ``AWS::IoT::Policy`` (``CfnPolicy``). Uses IoT policy variables so it
   scales to N Things without per-Thing CFN policies. See
   ``docs/SBCC-INFRA-0001-iot-hello-world-cdk.md`` § *IoT policy*.
+* **Greengrass TES (default)** — ``AWS::IAM::Role`` trusted by
+  ``credentials.iot.amazonaws.com`` plus ``AWS::IoT::RoleAlias``; device policy
+  includes ``iot:AssumeRoleWithCertificate``. Opt out with context
+  ``createGreengrassTokenExchangeRole: false``.
 * **One** Lambda + ``Provider`` (custom-resource framework). The handler imports
   ``sbc_config.modules.iot.lifecycle`` so the CLI's ``decommission-thing`` and
   the CFN ``Delete`` event share one teardown sequence.
@@ -23,6 +27,7 @@ private key never lives in synthesized CloudFormation outputs.
 from __future__ import annotations
 
 import shutil
+import sys
 import tempfile
 
 from pathlib import Path
@@ -54,7 +59,20 @@ from aws_cdk import (
 from constructs import Construct
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from sbc_config.modules.iot.defaults import (  # noqa: E402
+    DEFAULT_GREENGRASS_TES_ROLE_ALIAS,
+)
+
 HANDLER_PATH = REPO_ROOT / "infra/cdk/lambda/provision_device/handler.py"
+
+# AWS IoT rejects policy documents over this character count. Do not enumerate
+# per-Thing ARNs for Greengrass MQTT (grows with ``thingNames``); use
+# ``${iot:Connection.Thing.ThingName}`` in those paths instead.
+IOT_POLICY_DOCUMENT_MAX_CHARS = 2048
+
+_THING_NAME_VAR = "${iot:Connection.Thing.ThingName}"
 
 
 def _stage_lambda_asset() -> Path:
@@ -80,6 +98,7 @@ def _stage_lambda_asset() -> Path:
         ignore=shutil.ignore_patterns(
             "__pycache__",
             "mqtt5.py",  # awsiotsdk not in Lambda runtime; module is laptop/Pi-only.
+            "greengrass_install.py",  # subprocess + urllib installer; CLI-only.
         ),
     )
 
@@ -95,62 +114,128 @@ def _stage_lambda_asset() -> Path:
     return staging
 
 
-def _per_thing_policy_document(*, region: str, account: str) -> dict[str, Any]:
-    """Per-Thing scoped IoT policy using IoT policy variables.
+def _per_thing_policy_document(
+    *,
+    region: str,
+    account: str,
+    tes_role_alias: str | None,
+) -> dict[str, Any]:
+    """Per-Thing scoped IoT policy using IoT policy variables + Greengrass v2.
 
-    One CFN ``CfnPolicy`` resource serves all 17 Things because the variables
-    are substituted by the IoT data plane at connect/publish time:
+    Hello-world MQTT statements keep ``${iot:Connection.Thing.ThingName}``
+    for the ``hello/<thingName>/*`` namespace (see ``docs/SBCC-INFRA-0001``).
 
-    * ``${iot:Connection.Thing.ThingName}`` — the Thing the cert is attached to.
-    * ``${iot:ClientId}`` — the MQTT client id provided in CONNECT.
+    Greengrass needs multi-session **Connect** (``client/{thingName}*`` in the
+    minimal AWS doc), shadow/job/health MQTT paths, ``greengrass:*`` service
+    actions, and optional ``iot:AssumeRoleWithCertificate``. Those MQTT paths
+    use the **same thing-name IoT variable** as hello-world so the document
+    stays under **2048 characters** no matter how many Things the stack creates
+    (enumerating one ARN set per Thing exceeds ``IOT_POLICY_DOCUMENT_MAX_CHARS``).
 
-    Connect requires ``clientId == thingName``. Publish/Receive/Subscribe
-    are scoped to the ``hello/<thingName>/*`` topic namespace.
+    See `Minimal AWS IoT policy for AWS IoT Greengrass V2 core devices
+    <https://docs.aws.amazon.com/greengrass/v2/developerguide/device-auth.html#greengrass-core-minimal-iot-policy>`_.
 
-    Returns a JSON-able policy document dict (CDK serializes for us).
+    ``tes_role_alias`` — when set, the policy allows ``AssumeRoleWithCertificate``
+    on ``arn:aws:iot:<region>:<account>:rolealias/<alias>``. The stack provisions
+    the role + alias by default; set context ``createGreengrassTokenExchangeRole``
+    to ``false`` to skip and optionally supply an external alias via
+    ``greengrassTokenExchangeRoleAlias``.
     """
-    # The Connect resource pattern uses ${iot:Connection.Thing.ThingName} so
-    # the IoT data plane only resolves it when the cert is attached to a
-    # Thing AND the MQTT clientId matches that Thing's name. This is the
-    # canonical "client must connect as itself" idiom — no extra Condition
-    # block required.
-    return {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "ConnectAsOwnThing",
-                "Effect": "Allow",
-                "Action": "iot:Connect",
-                "Resource": (
-                    f"arn:aws:iot:{region}:{account}:client/"
-                    "${iot:Connection.Thing.ThingName}"
-                ),
-                "Condition": {
-                    "Bool": {
-                        "iot:Connection.Thing.IsAttached": "true",
-                    },
+    tn = _THING_NAME_VAR
+    publish_receive_resources = [
+        f"arn:aws:iot:{region}:{account}:topic/$aws/things/{tn}/greengrass/health/json",
+        f"arn:aws:iot:{region}:{account}:topic/$aws/things/{tn}/greengrassv2/health/json",
+        f"arn:aws:iot:{region}:{account}:topic/$aws/things/{tn}/jobs/*",
+        f"arn:aws:iot:{region}:{account}:topic/$aws/things/{tn}/shadow/*",
+    ]
+    subscribe_resources = [
+        f"arn:aws:iot:{region}:{account}:topicfilter/$aws/things/{tn}/jobs/*",
+        f"arn:aws:iot:{region}:{account}:topicfilter/$aws/things/{tn}/shadow/*",
+    ]
+    greengrass_connect_resource = f"arn:aws:iot:{region}:{account}:client/{tn}*"
+
+    statements: list[dict[str, Any]] = [
+        {
+            "Sid": "ConnectAsOwnThing",
+            "Effect": "Allow",
+            "Action": "iot:Connect",
+            "Resource": (
+                f"arn:aws:iot:{region}:{account}:client/"
+                "${iot:Connection.Thing.ThingName}"
+            ),
+            "Condition": {
+                "Bool": {
+                    "iot:Connection.Thing.IsAttached": "true",
                 },
             },
-            {
-                "Sid": "PublishOwnTopics",
-                "Effect": "Allow",
-                "Action": ["iot:Publish", "iot:Receive"],
-                "Resource": (
-                    f"arn:aws:iot:{region}:{account}:topic/hello/"
-                    "${iot:Connection.Thing.ThingName}/*"
-                ),
+        },
+        {
+            "Sid": "PublishOwnTopics",
+            "Effect": "Allow",
+            "Action": ["iot:Publish", "iot:Receive"],
+            "Resource": (
+                f"arn:aws:iot:{region}:{account}:topic/hello/"
+                "${iot:Connection.Thing.ThingName}/*"
+            ),
+        },
+        {
+            "Sid": "SubscribeOwnTopicFilters",
+            "Effect": "Allow",
+            "Action": "iot:Subscribe",
+            "Resource": (
+                f"arn:aws:iot:{region}:{account}:topicfilter/hello/"
+                "${iot:Connection.Thing.ThingName}/*"
+            ),
+        },
+        {
+            "Sid": "GgConnect",
+            "Effect": "Allow",
+            "Action": "iot:Connect",
+            "Resource": greengrass_connect_resource,
+            "Condition": {
+                "Bool": {
+                    "iot:Connection.Thing.IsAttached": "true",
+                },
             },
+        },
+        {
+            "Sid": "GgTopicsPubRecv",
+            "Effect": "Allow",
+            "Action": ["iot:Publish", "iot:Receive"],
+            "Resource": publish_receive_resources,
+        },
+        {
+            "Sid": "GgTopicsSub",
+            "Effect": "Allow",
+            "Action": "iot:Subscribe",
+            "Resource": subscribe_resources,
+        },
+        {
+            "Sid": "GgServiceApi",
+            "Effect": "Allow",
+            "Action": [
+                "greengrass:GetComponentVersionArtifact",
+                "greengrass:ResolveComponentCandidates",
+                "greengrass:GetDeploymentConfiguration",
+                "greengrass:ListThingGroupsForCoreDevice",
+            ],
+            "Resource": "*",
+        },
+    ]
+
+    if tes_role_alias:
+        statements.append(
             {
-                "Sid": "SubscribeOwnTopicFilters",
+                "Sid": "GgTes",
                 "Effect": "Allow",
-                "Action": "iot:Subscribe",
+                "Action": "iot:AssumeRoleWithCertificate",
                 "Resource": (
-                    f"arn:aws:iot:{region}:{account}:topicfilter/hello/"
-                    "${iot:Connection.Thing.ThingName}/*"
+                    f"arn:aws:iot:{region}:{account}:rolealias/{tes_role_alias}"
                 ),
-            },
-        ],
-    }
+            }
+        )
+
+    return {"Version": "2012-10-17", "Statement": statements}
 
 
 class IotHelloStack(cdk.Stack):
@@ -172,6 +257,59 @@ class IotHelloStack(cdk.Stack):
             raise ValueError(msg)
 
         # ----------------------------------------------------------------
+        # 0. Greengrass token exchange — IAM role + IoT role alias (default on).
+        # ----------------------------------------------------------------
+        # Set context ``createGreengrassTokenExchangeRole`` to false only if you
+        # manage TES out of band; then optionally set ``greengrassTokenExchangeRoleAlias``
+        # for an external alias name so the IoT policy still gets
+        # ``iot:AssumeRoleWithCertificate``.
+        skip_tes_infra = (
+            self.node.try_get_context("createGreengrassTokenExchangeRole") is False
+        )
+        tes_alias: str | None = None
+        greengrass_tes_role_alias_resource: iot.CfnRoleAlias | None = None
+        if not skip_tes_infra:
+            alias_ctx = self.node.try_get_context("greengrassTokenExchangeRoleAlias")
+            alias_override = (
+                alias_ctx if isinstance(alias_ctx, str) and alias_ctx else None
+            )
+            tes_role_alias_name = alias_override or DEFAULT_GREENGRASS_TES_ROLE_ALIAS
+
+            tes_role = iam.Role(
+                self,
+                "GreengrassTokenExchangeRole",
+                assumed_by=iam.ServicePrincipal("credentials.iot.amazonaws.com"),
+                description=(
+                    "Greengrass v2 token exchange - assumed via "
+                    "iot:AssumeRoleWithCertificate on the device cert."
+                ),
+            )
+            tes_role.add_to_policy(
+                iam.PolicyStatement(
+                    sid="GgTesCloudWatchLogs",
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents",
+                        "logs:DescribeLogStreams",
+                        "logs:DescribeLogGroups",
+                    ],
+                    resources=["*"],
+                )
+            )
+            greengrass_tes_role_alias_resource = iot.CfnRoleAlias(
+                self,
+                "GreengrassTokenExchangeAlias",
+                role_arn=tes_role.role_arn,
+                role_alias=tes_role_alias_name,
+            )
+            tes_alias = tes_role_alias_name
+        else:
+            ext = self.node.try_get_context("greengrassTokenExchangeRoleAlias")
+            tes_alias = ext if isinstance(ext, str) and ext else None
+
+        # ----------------------------------------------------------------
         # 1. Per-Thing scoped IoT policy (one CFN resource for all Things).
         # ----------------------------------------------------------------
         policy = iot.CfnPolicy(
@@ -181,8 +319,11 @@ class IotHelloStack(cdk.Stack):
             policy_document=_per_thing_policy_document(
                 region=self.region,
                 account=self.account,
+                tes_role_alias=tes_alias,
             ),
         )
+        if greengrass_tes_role_alias_resource is not None:
+            policy.node.add_dependency(greengrass_tes_role_alias_resource)
 
         # ----------------------------------------------------------------
         # 2. Custom-resource Lambda (Python 3.13) that owns cert lifecycle.
@@ -305,6 +446,16 @@ class IotHelloStack(cdk.Stack):
             value=",".join(thing_names),
             description="IoT Things provisioned by this stack.",
         )
+        if tes_alias is not None:
+            CfnOutput(
+                self,
+                "GreengrassTokenExchangeRoleAlias",
+                value=tes_alias,
+                description=(
+                    "Greengrass TES IoT role alias - export SBC_IOT_GG_TES_ROLE_ALIAS "
+                    "to match for sbc iot install-greengrass."
+                ),
+            )
 
     def _wire_thing(
         self,

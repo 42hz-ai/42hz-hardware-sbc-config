@@ -25,11 +25,23 @@ from aws_cdk import assertions
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "infra" / "cdk"))
 
-from stacks.iot_hello_stack import IotHelloStack  # noqa: E402
+from stacks.iot_hello_stack import (  # noqa: E402
+    IOT_POLICY_DOCUMENT_MAX_CHARS,
+    IotHelloStack,
+    _per_thing_policy_document,
+)
+
+from sbc_config.modules.iot.defaults import (  # noqa: E402
+    DEFAULT_GREENGRASS_TES_ROLE_ALIAS,
+)
 
 
-def _synth(thing_names: list[str]) -> assertions.Template:
-    app = cdk.App()
+def _synth(
+    thing_names: list[str],
+    *,
+    context: dict[str, Any] | None = None,
+) -> assertions.Template:
+    app = cdk.App(context=context or {})
     stack = IotHelloStack(
         app,
         "TestStack",
@@ -73,14 +85,47 @@ class IotPolicyShape(unittest.TestCase):
             body,
         )
 
-    def test_policy_has_three_statements(self) -> None:
+    def test_policy_has_expected_sids(self) -> None:
         template = _synth(["hw-pi-001"])
         props = _resource_property(template, type_name="AWS::IoT::Policy")
         sids = [s["Sid"] for s in props["PolicyDocument"]["Statement"]]
-        self.assertEqual(
-            sids,
-            ["ConnectAsOwnThing", "PublishOwnTopics", "SubscribeOwnTopicFilters"],
+        self.assertIn("ConnectAsOwnThing", sids)
+        self.assertIn("GgConnect", sids)
+        self.assertIn("GgServiceApi", sids)
+
+    def test_greengrass_mqtt_uses_thing_policy_variable(self) -> None:
+        template = _synth(["hw-pi-001", "hw-devcontainer-001"])
+        props = _resource_property(template, type_name="AWS::IoT::Policy")
+        body = json.dumps(props["PolicyDocument"])
+        self.assertIn(
+            "$aws/things/${iot:Connection.Thing.ThingName}/shadow/*",
+            body,
         )
+        self.assertIn(":client/${iot:Connection.Thing.ThingName}*", body)
+        self.assertNotIn("hw-pi-001*", body)
+
+    def test_policy_document_resolved_length_under_aws_limit(self) -> None:
+        """Literal region/account JSON must stay under AWS IoT policy size limit."""
+        without_tes = _per_thing_policy_document(
+            region="us-west-2",
+            account="123456789012",
+            tes_role_alias=None,
+        )
+        with_tes = _per_thing_policy_document(
+            region="us-west-2",
+            account="123456789012",
+            tes_role_alias="GreengrassCoreTokenExchangeRoleAlias",
+        )
+        for label, doc in (
+            ("no-tes", without_tes),
+            ("tes", with_tes),
+        ):
+            raw = json.dumps(doc, separators=(",", ":"))
+            self.assertLessEqual(
+                len(raw),
+                IOT_POLICY_DOCUMENT_MAX_CHARS,
+                f"{label} policy length {len(raw)}",
+            )
 
 
 class MultiThingWiring(unittest.TestCase):
@@ -112,6 +157,53 @@ class MultiThingWiring(unittest.TestCase):
         # framework's onEvent.
         functions = template.find_resources("AWS::Lambda::Function")
         self.assertGreaterEqual(len(functions), 2)
+
+
+class GreengrassTokenExchange(unittest.TestCase):
+    """CDK creates TES role + IoT role alias by default; policy includes GgTes."""
+
+    def test_default_creates_iot_role_alias(self) -> None:
+        template = _synth(["hw-pi-001"])
+        template.resource_count_is("AWS::IoT::RoleAlias", 1)
+
+    def test_default_policy_includes_gg_tes(self) -> None:
+        template = _synth(["hw-pi-001"])
+        props = _resource_property(template, type_name="AWS::IoT::Policy")
+        sids = [s["Sid"] for s in props["PolicyDocument"]["Statement"]]
+        self.assertIn("GgTes", sids)
+        body = json.dumps(props["PolicyDocument"])
+        self.assertIn(DEFAULT_GREENGRASS_TES_ROLE_ALIAS, body)
+        self.assertIn("iot:AssumeRoleWithCertificate", body)
+
+    def test_stack_outputs_tes_role_alias_when_managed(self) -> None:
+        template = _synth(["hw-pi-001"])
+        names = template.to_json().get("Outputs", {})
+        self.assertIn("GreengrassTokenExchangeRoleAlias", names)
+
+    def test_skip_tes_infra_no_role_alias_no_gg_tes(self) -> None:
+        template = _synth(
+            ["hw-pi-001"],
+            context={"createGreengrassTokenExchangeRole": False},
+        )
+        template.resource_count_is("AWS::IoT::RoleAlias", 0)
+        props = _resource_property(template, type_name="AWS::IoT::Policy")
+        sids = [s["Sid"] for s in props["PolicyDocument"]["Statement"]]
+        self.assertNotIn("GgTes", sids)
+
+    def test_skip_tes_with_external_alias_has_gg_tes_no_cfn_role_alias(self) -> None:
+        template = _synth(
+            ["hw-pi-001"],
+            context={
+                "createGreengrassTokenExchangeRole": False,
+                "greengrassTokenExchangeRoleAlias": "external-gg-alias",
+            },
+        )
+        template.resource_count_is("AWS::IoT::RoleAlias", 0)
+        props = _resource_property(template, type_name="AWS::IoT::Policy")
+        sids = [s["Sid"] for s in props["PolicyDocument"]["Statement"]]
+        self.assertIn("GgTes", sids)
+        body = json.dumps(props["PolicyDocument"])
+        self.assertIn("external-gg-alias", body)
 
 
 class LambdaHandlerImports(unittest.TestCase):

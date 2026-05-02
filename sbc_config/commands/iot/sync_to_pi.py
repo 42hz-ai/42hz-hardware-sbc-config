@@ -10,9 +10,10 @@ import click
 
 from sbc_config.modules.iot.defaults import (
     ENV_PI_SSH,
-    SYNC_DEFAULT_BUNDLE_RELATIVE,
+    HELLO_WORLD_THING_NAME,
     SYNC_DEFAULT_REMOTE_BUNDLE,
     SYNC_DEFAULT_REMOTE_REPO,
+    default_bundle_dir_for_thing,
 )
 from sbc_config.modules.iot.pi_sync import sync_bundle, sync_repo
 
@@ -27,6 +28,16 @@ from sbc_config.modules.iot.pi_sync import sync_bundle, sync_repo
     help=(
         f"SSH target for the Pi (e.g. hz42@192.168.8.122). "
         f"Falls back to ${ENV_PI_SSH} when omitted."
+    ),
+)
+@click.option(
+    "--thing-name",
+    default=HELLO_WORLD_THING_NAME,
+    show_default=True,
+    metavar="NAME",
+    help=(
+        "Used only when --bundle-dir is omitted: default bundle path is "
+        "aws-iot-bundles/<NAME> or $SBC_IOT_FETCH_OUT_DIR."
     ),
 )
 @click.option(
@@ -46,12 +57,11 @@ from sbc_config.modules.iot.pi_sync import sync_bundle, sync_repo
 @click.option(
     "--bundle-dir",
     type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
-    default=SYNC_DEFAULT_BUNDLE_RELATIVE,
-    show_default=True,
+    default=None,
     metavar="DIR",
     help=(
-        "Local PEM bundle directory (cert, key, cas/, endpoint.txt). "
-        "Relative paths are resolved against the current working directory."
+        "Local PEM bundle directory. Default: $SBC_IOT_FETCH_OUT_DIR or "
+        "aws-iot-bundles/<--thing-name>. Relative paths use the current working directory."
     ),
 )
 @click.option(
@@ -92,9 +102,10 @@ from sbc_config.modules.iot.pi_sync import sync_bundle, sync_repo
 def sync_to_pi_command(
     ctx: click.Context,
     ssh: str | None,
+    thing_name: str,
     repo_root: Path | None,
     remote_repo: str,
-    bundle_dir: Path,
+    bundle_dir: Path | None,
     remote_bundle: str,
     skip_repo: bool,
     skip_bundle: bool,
@@ -112,8 +123,7 @@ def sync_to_pi_command(
 
     \b
         export SBC_IOT_PI_SSH=hz42@192.168.8.122
-        export SBC_IOT_FETCH_OUT_DIR=aws-iot-bundle
-        uv run sbc iot fetch-credentials
+        uv run sbc iot fetch-credentials --thing-name hw-pi-001
         uv run sbc iot sync-to-pi --dry-run   # preview
         uv run sbc iot sync-to-pi             # push
         uv run sbc iot sync-to-pi -v --progress   # live rsync file list + overall %
@@ -167,10 +177,15 @@ def sync_to_pi_command(
         console.print("[green]Repo synced.[/green]")
 
     if not skip_bundle:
+        bundle_src = (
+            bundle_dir
+            if bundle_dir is not None
+            else default_bundle_dir_for_thing(thing_name)
+        )
         effective_bundle = (
-            (Path.cwd() / bundle_dir).resolve()
-            if not bundle_dir.is_absolute()
-            else bundle_dir
+            (Path.cwd() / bundle_src).resolve()
+            if not bundle_src.is_absolute()
+            else bundle_src.resolve()
         )
         console.print(
             f"[cyan]Syncing bundle[/cyan]{dry_label} "
@@ -179,7 +194,7 @@ def sync_to_pi_command(
         try:
             result = sync_bundle(
                 ssh,
-                bundle_dir=bundle_dir if bundle_dir.is_absolute() else None,
+                bundle_dir=effective_bundle,
                 remote_bundle=remote_bundle,
                 dry_run=dry_run,
                 extra_args=extra_args,

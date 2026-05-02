@@ -23,16 +23,44 @@ from sbc_config.modules.iot.credentials import DEFAULT_OUT_DIR as _DEFAULT_OUT_D
 HELLO_WORLD_THING_NAME: str = "hw-pi-001"
 """Default IoT Thing name matching ``IotHelloStack`` / INFRA-0001."""
 
+DEFAULT_GREENGRASS_TES_ROLE_ALIAS: str = "sbcc-iot-hello-gg-tes"
+"""IoT role alias for Greengrass v2 token exchange (TES) with ``IotHelloStack``.
+
+Must match the stack default unless CDK context ``greengrassTokenExchangeRoleAlias``
+or ``createGreengrassTokenExchangeRole: false`` changes the story. CLI
+``install-greengrass`` uses this when ``--tes-role-alias`` and
+``SBC_IOT_GG_TES_ROLE_ALIAS`` are unset.
+"""
+
 # ---------------------------------------------------------------------------
 # Laptop-side paths (PEM bundle + repo root)
 # ---------------------------------------------------------------------------
 
-SYNC_DEFAULT_BUNDLE_RELATIVE: Path = Path("aws-iot-bundle")
-"""Bundle directory relative to cwd on the operator laptop.
+BUNDLE_PARENT_RELATIVE: Path = Path("aws-iot-bundles")
+"""Parent directory (cwd-relative) for per-Thing PEM folders."""
 
-Both ``fetch-credentials --out-dir`` and ``sync-to-pi --bundle-dir``
-default to this so they stay aligned without extra flags.
+SYNC_DEFAULT_BUNDLE_RELATIVE: Path = BUNDLE_PARENT_RELATIVE / HELLO_WORLD_THING_NAME
+"""Default Pi bundle path relative to cwd: ``aws-iot-bundles/hw-pi-001``.
+
+``sync_bundle(..., bundle_dir=None)`` uses this. The CLI resolves
+``$SBC_IOT_FETCH_OUT_DIR`` or ``aws-iot-bundles/<--thing-name>`` at runtime.
 """
+
+
+def default_bundle_dir_for_thing(thing_name: str) -> Path:
+    """Default PEM directory for ``fetch-credentials`` / ``install-greengrass``.
+
+    Priority: ``$SBC_IOT_FETCH_OUT_DIR`` > ``aws-iot-bundles/<thing_name>``
+    (relative to cwd unless the env path is absolute).
+
+    On-Pi or legacy flows: set ``SBC_IOT_FETCH_OUT_DIR=/etc/aws-iot`` or pass
+    ``--out-dir`` / ``--bundle-dir`` explicitly.
+    """
+    raw = os.environ.get(ENV_FETCH_OUT_DIR)
+    if raw:
+        return Path(raw).expanduser()
+    return BUNDLE_PARENT_RELATIVE / thing_name
+
 
 # ---------------------------------------------------------------------------
 # Pi-side remote paths (rsync remote spec; tilde expanded on the Pi)
@@ -73,12 +101,12 @@ Missing without ``--ssh`` → error that names this key.
 """
 
 ENV_FETCH_OUT_DIR: str = "SBC_IOT_FETCH_OUT_DIR"
-"""Env var for the ``fetch-credentials`` output directory.
+"""Env var override for the default PEM directory on the operator machine.
 
-When set, used as the default ``--out-dir`` value on the operator laptop,
-overriding the system default (``/etc/aws-iot``) without requiring an
-explicit flag.  Set to ``aws-iot-bundle`` in a dev shell profile to keep
-credentials out of ``/etc``.
+When set, ``fetch-credentials``, ``install-greengrass``, ``sync-to-pi`` (with
+no ``--bundle-dir``), and ``mqtt-test`` use this path instead of
+``aws-iot-bundles/<thing-name>``. Use an absolute path such as ``/etc/aws-iot``
+on a Pi, or one shared dir if you intentionally reuse PEMs across Things.
 """
 
 ENV_IOT_DATA_DIR: str = "IOT_DATA_DIR"
@@ -109,16 +137,22 @@ def default_fetch_out_dir() -> Path:
     return Path(raw).expanduser() if raw else _DEFAULT_OUT_DIR
 
 
-def default_mqtt_bundle_dir() -> Path:
+def default_mqtt_bundle_dir(thing_name: str | None = None) -> Path:
     """Default PEM directory for ``mqtt-test`` (read paths under ``--out-dir``).
 
     ``$IOT_DATA_DIR`` wins (set in ``infra/docker/iot-runner/compose.yaml`` for
-    the bind mount at ``/data/aws-iot``). Otherwise match ``fetch-credentials``
-    via ``default_fetch_out_dir()``.
+    the bind mount at ``/data/aws-iot``). Then ``$SBC_IOT_FETCH_OUT_DIR``.
+    Otherwise ``aws-iot-bundles/<thing_name>`` when *thing_name* is set, else
+    ``default_fetch_out_dir()`` (``/etc/aws-iot`` when no env).
     """
     raw = os.environ.get(ENV_IOT_DATA_DIR)
     if raw:
         return Path(raw).expanduser()
+    raw_fetch = os.environ.get(ENV_FETCH_OUT_DIR)
+    if raw_fetch:
+        return Path(raw_fetch).expanduser()
+    if thing_name:
+        return BUNDLE_PARENT_RELATIVE / thing_name
     return default_fetch_out_dir()
 
 

@@ -14,8 +14,9 @@ from sbc_config.modules.iot.credentials import (
     write_bundle_to_disk,
 )
 from sbc_config.modules.iot.defaults import (
+    ENV_FETCH_OUT_DIR,
     HELLO_WORLD_THING_NAME,
-    default_fetch_out_dir,
+    default_bundle_dir_for_thing,
 )
 from sbc_config.modules.iot.endpoint import describe_data_ats_endpoint
 
@@ -41,11 +42,13 @@ def _default_secret_name(thing_name: str) -> str:
 @click.option(
     "--out-dir",
     type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
-    default=default_fetch_out_dir,
-    show_default="$SBC_IOT_FETCH_OUT_DIR or /etc/aws-iot",
+    default=None,
+    metavar="DIR",
+    show_default=False,
     help=(
         "Target directory for thing-cert.pem, thing-private.key, cas/. "
-        "Override via $SBC_IOT_FETCH_OUT_DIR (e.g. 'aws-iot-bundle' for laptop use)."
+        f"Default: ${ENV_FETCH_OUT_DIR} or aws-iot-bundles/<--thing-name>. "
+        f"On a Pi, set ${ENV_FETCH_OUT_DIR}=/etc/aws-iot or pass this flag."
     ),
 )
 @click.option(
@@ -71,13 +74,16 @@ def fetch_credentials_command(
     ctx: click.Context,
     thing_name: str,
     secret_id: str | None,
-    out_dir: Path,
+    out_dir: Path | None,
     skip_cas: bool,
     no_overwrite: bool,
     print_endpoint: bool,
 ) -> None:
     """Download cert + private key from Secrets Manager and lay them out on disk."""
     console = ctx.obj["console"]
+    out_eff = (
+        out_dir if out_dir is not None else default_bundle_dir_for_thing(thing_name)
+    )
     session = build_session(
         profile=ctx.obj.get("aws_profile"),
         region=ctx.obj.get("aws_region"),
@@ -100,7 +106,7 @@ def fetch_credentials_command(
 
     written = write_bundle_to_disk(
         bundle,
-        out_dir,
+        out_eff,
         download_cas=not skip_cas,
         overwrite=not no_overwrite,
     )

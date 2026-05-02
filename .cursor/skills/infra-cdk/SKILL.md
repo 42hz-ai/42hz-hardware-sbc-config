@@ -29,6 +29,8 @@ The stack provisions:
 
 Canonical "why / what / how" lives in **[`SBCC-INFRA-0001`](../../../docs/SBCC-INFRA-0001-iot-hello-world-cdk.md)**.
 
+**Cursor rule:** [`.cursor/rules/cdk-aws-metadata-strings.mdc`](../../rules/cdk-aws-metadata-strings.mdc) — ASCII-only strings in AWS-bound `description=` fields; construct ID shape.
+
 ## Living-doc stewardship clause
 
 When editing any of the following, update **`SBCC-INFRA-0001`** in the same change:
@@ -36,6 +38,7 @@ When editing any of the following, update **`SBCC-INFRA-0001`** in the same chan
 - `infra/cdk/stacks/iot_hello_stack.py`
 - `infra/cdk/lambda/provision_device/handler.py`
 - The IoT policy document (resource patterns, variables, conditions).
+- **Greengrass-related policy statements** — also update **`SBCC-INFRA-0003`** (see **`.cursor/skills/greengrass-local-dev/SKILL.md`**).
 - The Secrets Manager JSON schema (`sbc_config/modules/iot/credentials.py::SecretBundle`).
 - `sbc_config/modules/iot/lifecycle.py` (shared spine for CLI + Lambda).
 - Any `sbc iot` subcommand flag or CLI surface.
@@ -120,6 +123,7 @@ See **[`doc-create`](../doc-create/SKILL.md)** for the full naming convention. F
 
 ## Checklist (agent)
 
+- [ ] No Unicode typography in IAM/Lambda/`CfnOutput` **description** strings (see **`cdk-aws-metadata-strings`** rule).
 - [ ] CDK stack synthesizes cleanly (`cdk synth` — no deprecation warnings).
 - [ ] Policy uses `${iot:Connection.Thing.ThingName}` (snapshot test in `tests/test_iot_hello_stack.py`).
 - [ ] Lambda Delete path imports `sbc_config.modules.iot.lifecycle.decommission_thing` (no parallel implementation).

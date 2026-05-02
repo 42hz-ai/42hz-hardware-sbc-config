@@ -18,11 +18,6 @@ from sbc_config.modules.iot.endpoint import describe_data_ats_endpoint
 from sbc_config.modules.iot.mqtt5 import publish_once
 
 
-def _mqtt_default_out_dir(*_args: object, **_kwargs: object) -> Path:
-    """Invoke option default with 0-2 args depending on Click version."""
-    return default_mqtt_bundle_dir()
-
-
 @click.command("mqtt-test")
 @click.option(
     "--thing-name",
@@ -68,12 +63,13 @@ def _mqtt_default_out_dir(*_args: object, **_kwargs: object) -> Path:
 @click.option(
     "--out-dir",
     type=click.Path(path_type=Path, file_okay=False, dir_okay=True, exists=True),
-    default=_mqtt_default_out_dir,
+    default=None,
+    metavar="DIR",
     show_default=False,
     help=(
         "Directory layout for default --cert/--private-key/--ca. "
-        f"Default order: {ENV_IOT_DATA_DIR} env (iot-runner compose), "
-        f"then {ENV_FETCH_OUT_DIR}, then /etc/aws-iot."
+        f"Default: {ENV_IOT_DATA_DIR}, then ${ENV_FETCH_OUT_DIR}, "
+        "then aws-iot-bundles/<--thing-name>, else /etc/aws-iot."
     ),
 )
 @click.option(
@@ -98,15 +94,16 @@ def mqtt_test_command(
     cert: Path | None,
     private_key: Path | None,
     ca: Path | None,
-    out_dir: Path,
+    out_dir: Path | None,
     endpoint: str | None,
     qos: int,
 ) -> None:
     """Publish one MQTT 5 message using the on-disk PEM bundle."""
     console = ctx.obj["console"]
-    cert = cert or out_dir / CERT_FILENAME
-    private_key = private_key or out_dir / KEY_FILENAME
-    ca = ca or out_dir / CAS_SUBDIR / "AmazonRootCA1.pem"
+    base = out_dir if out_dir is not None else default_mqtt_bundle_dir(thing_name)
+    cert = cert or base / CERT_FILENAME
+    private_key = private_key or base / KEY_FILENAME
+    ca = ca or base / CAS_SUBDIR / "AmazonRootCA1.pem"
     topic = topic or f"hello/{thing_name}/heartbeat"
 
     if endpoint is None:

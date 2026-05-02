@@ -27,8 +27,9 @@ RUN apt install -y ca-certificates gnupg && \
 # bundled npm often fails (e.g. MODULE_NOT_FOUND promise-retry). The distro
 # npm is enough for global prettier below.
 
-# Install prettier
-RUN npm install -g prettier
+RUN apt-get update && \
+  apt-get install -y openjdk-17-jre-headless && \
+  rm -rf /var/lib/apt/lists/*
 
 # Install AWS CDK CLI globally so `cdk synth` / `cdk deploy` work in the
 # devcontainer. See docs/SBCC-INFRA-0001-iot-hello-world-cdk.md.

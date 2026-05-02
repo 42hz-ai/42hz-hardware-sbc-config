@@ -1,0 +1,44 @@
+---
+description: CDK stacks — ASCII-safe strings for IAM/Lambda/CFN descriptions; construct IDs; avoid Unicode typography in AWS-bound metadata.
+globs: infra/cdk/**/*.py
+alwaysApply: false
+---
+
+# CDK — AWS metadata strings and naming
+
+Applies when editing **`infra/cdk/**/*.py`** (stacks, constructs, aspect code). Several AWS APIs reject **Unicode punctuation** in fields documented as matching IAM-style character sets (tab, LF, CR, ASCII space through `~`, and U+00A1–U+00FF). **Em/en dashes, smart quotes, ellipsis, and most emoji are outside that set** and cause deploy-time `InvalidRequest` on roles, etc.
+
+## Do
+
+- For **`description=`** (and similar **AWS-visible** prose) on **`iam.Role`**, **`iam.User`**, **`iam.Policy`**, **`iam.OpenIdConnectProvider`**, **`lambda_.Function`**, **`CfnOutput(..., description=)`**, and other resources where the docs mention a **length + pattern** constraint: use **plain ASCII** — hyphen `-`, apostrophe `'`, straight double quotes if needed, periods.
+- Prefer short, operator-facing English; no copied-and-pasted markdown or doc typography.
+- **Construct IDs** (CDK second argument): stable **`PascalCase`** or alphanumeric tokens; no spaces; align with existing stacks (`GreengrassTokenExchangeRole`, `HelloWorldPolicy`). Logical IDs flow from these — keep them predictable for support and drift review.
+
+## Do not
+
+- Do **not** use **U+2014 em dash**, **U+2013 en dash**, **U+201C/U+201D curly quotes**, **U+2026 ellipsis**, or non-breaking spaces in any string that becomes an AWS resource property unless the service explicitly allows full Unicode.
+- Do **not** assume CloudFormation output descriptions are more permissive than IAM — stay ASCII unless you have verified the target property’s documented pattern.
+
+## Examples
+
+```python
+# Bad (deploy fails on CreateRole / InvalidRequest for description)
+iam.Role(
+    self,
+    "ExampleRole",
+    assumed_by=...,
+    description="Token exchange — Greengrass TES",
+)
+
+# Good
+iam.Role(
+    self,
+    "ExampleRole",
+    assumed_by=...,
+    description="Token exchange - Greengrass TES",
+)
+```
+
+## After edits
+
+Run **`cdk synth`** (and deploy if IAM resources changed) so bad strings surface before merge.

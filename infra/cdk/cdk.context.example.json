@@ -1,6 +1,9 @@
 {
   "_comment": "Copy to cdk.context.json (gitignored) and edit. `thingNames` is the source of truth for how many Things the stack creates; the per-Thing-scoped IoT policy is shared across all of them.",
-  "thingNames": ["hw-pi-001"],
+  "thingNames": ["hw-pi-001", "hw-devcontainer-001"],
+  "_greengrass_token_exchange": "By default the stack creates an IAM role + IoT role alias (TES) and adds iot:AssumeRoleWithCertificate to the device policy. Optional: set greengrassTokenExchangeRoleAlias to override the alias name (default sbcc-iot-hello-gg-tes). Set createGreengrassTokenExchangeRole to false only if you manage TES elsewhere; then set greengrassTokenExchangeRoleAlias if the external alias name should appear on the policy.",
+  "greengrassTokenExchangeRoleAlias": "",
+  "createGreengrassTokenExchangeRole": true,
   "policyName": "iot-hello-world",
   "_phaseB_example": {
     "thingNames": [

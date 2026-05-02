@@ -11,6 +11,7 @@ from unittest.mock import patch
 from sbc_config.modules.iot.defaults import (
     ENV_FETCH_OUT_DIR,
     ENV_IOT_DATA_DIR,
+    default_bundle_dir_for_thing,
     default_mqtt_bundle_dir,
 )
 
@@ -35,6 +36,31 @@ class TestDefaultMqttBundleDir(unittest.TestCase):
             self.assertEqual(
                 default_mqtt_bundle_dir(),
                 Path("/nfs/pems/fetch-default"),
+            )
+
+    def test_mqtt_bundle_dir_uses_thing_subdir_without_env(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                default_mqtt_bundle_dir("hw-devcontainer-001"),
+                Path("aws-iot-bundles") / "hw-devcontainer-001",
+            )
+
+    def test_default_bundle_dir_for_thing_respects_env(self) -> None:
+        with patch.dict(
+            os.environ,
+            {ENV_FETCH_OUT_DIR: "/nfs/pems/override-thing-dir"},
+            clear=False,
+        ):
+            self.assertEqual(
+                default_bundle_dir_for_thing("any-thing"),
+                Path("/nfs/pems/override-thing-dir"),
+            )
+
+    def test_default_bundle_dir_for_thing_subdir(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                default_bundle_dir_for_thing("hw-pi-001"),
+                Path("aws-iot-bundles") / "hw-pi-001",
             )
 
 

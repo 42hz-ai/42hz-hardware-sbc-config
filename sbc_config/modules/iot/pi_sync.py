@@ -140,7 +140,12 @@ def sync_bundle(
         ``subprocess.CompletedProcess`` from rsync.
     """
     target = resolve_pi_ssh(ssh_target)
-    local_bundle = (bundle_dir or Path.cwd() / SYNC_DEFAULT_BUNDLE_RELATIVE).resolve()
+    local_base = (
+        bundle_dir
+        if bundle_dir is not None
+        else Path.cwd() / SYNC_DEFAULT_BUNDLE_RELATIVE
+    )
+    local_bundle = local_base.resolve()
     source = str(local_bundle) + "/"
     dest = f"{target}:{remote_bundle}"
     return _rsync(

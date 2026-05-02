@@ -176,7 +176,7 @@ Resulting **standard** bundle layout (`--out-dir` may vary):
 └── thing-private.key   (mode 0600)
 ```
 
-Replace **`<out-dir>`** above with **`$IOT_DATA_DIR`** inside **`iot-runner`**, **`/etc/aws-iot`** for on-Pi **`sudo`** flows, or **`./aws-iot-bundle`** on the laptop via **`SBC_IOT_FETCH_OUT_DIR`** — same filenames.
+Replace **`<out-dir>`** above with **`$IOT_DATA_DIR`** inside **`iot-runner`**, **`/etc/aws-iot`** for on-Pi **`sudo`** flows, or **`./aws-iot-bundle`** (single Thing) / **`./aws-iot-bundles/<thing-name>`** (multiple Things) on the laptop via **`--out-dir`** / **`SBC_IOT_FETCH_OUT_DIR`** — same filenames in each directory. **`aws-iot-bundle/`** and **`aws-iot-bundles/`** are **gitignored**; use one subdirectory per Thing so fetches do not overwrite another device’s PEMs.
 
 **Why CA1–CA4?** AWS IoT serves certs from Amazon Trust Services. Starfield cross-signing ended Aug 2024 — bundling all four roots avoids surprise verification failures during root rotations.
 
@@ -220,7 +220,7 @@ client.publish(mqtt5.PublishPacket(
 When we move from "hello world" to actual deployments:
 
 - **Reuse the same device cert.** Nucleus needs the Thing’s cert/key in a **readable directory** — same PEM layout this stack writes (**`thing-cert.pem`**, **`thing-private.key`**, etc.); path may be **`/etc/aws-iot`**, **`/greengrass`** vendor layout, image mount (**`/data/aws-iot`**), or systemd-provisioned dirs — adjust policy paths in docs/deployments accordingly.
-- **Widen the IoT policy** with the actions Greengrass v2 needs (token exchange, MQTT, deployments) per the [AWS reference policy](https://docs.aws.amazon.com/greengrass/v2/developerguide/device-auth.html).
+- **Widen the IoT policy** with the actions Greengrass v2 needs per the [AWS reference policy](https://docs.aws.amazon.com/greengrass/v2/developerguide/device-auth.html). The stack merges **hello-world** topics with Greengrass **MQTT** (shadow / jobs / health) using **`${iot:Connection.Thing.ThingName}`** so the document stays under AWS’s **2048**-character limit, plus **four** `greengrass:*` service actions for nucleus + deployments. **TES** is created by the stack by default (IAM role + IoT role alias + `iot:AssumeRoleWithCertificate`); optional context keys and opt-out in **[`SBCC-INFRA-0003`](SBCC-INFRA-0003-greengrass-local-dev-loop.md)** (extra client-device `greengrass:*` actions may need a **second** IoT policy).
 - **Pi 4/5:** default to **`aws.greengrass.Nucleus` v2.17.0**.
 - **Constrained devices:** **`aws.greengrass.NucleusLite` v2.5.0** (<5 MB RAM; subset of features; backwards-compatible v2 APIs).
 - **Greengrass v1 is sunset** — don't reach for it. See [`.cursor/rules/aws-iot-avoid-deprecated.mdc`](../.cursor/rules/aws-iot-avoid-deprecated.mdc).
@@ -259,9 +259,10 @@ Same sequence the Lambda runs. Keep this list in sync with `sbc_config/modules/i
 
 ## Cross-links
 
+- Greengrass dev loop (this repo): [`SBCC-INFRA-0003-greengrass-local-dev-loop.md`](SBCC-INFRA-0003-greengrass-local-dev-loop.md)
 - Repo entry point: [README.md § Infrastructure / CDK](../README.md#infrastructure--cdk)
 - CDK app: [`infra/cdk/README.md`](../infra/cdk/README.md)
 - Org baseline: `iotea-infrastructure-identity-center` ▸ [`IDCTR-INFRA-0001`](/workspaces/iotea-infrastructure-identity-center/docs/IDCTR-INFRA-0001-aws-identity-center.md), [`IDCTR-INFRA-0002`](/workspaces/iotea-infrastructure-identity-center/docs/IDCTR-INFRA-0002-aws-identity-center-cdk.md), [`IDCTR-INFRA-0003`](/workspaces/iotea-infrastructure-identity-center/docs/IDCTR-INFRA-0003-workload-cdk-pattern.md)
 - Sibling spike (devx pattern source): [`iotea-spike-preston-sitewise`](/workspaces/iotea-spike-preston-sitewise)
-- Skill: [`.cursor/skills/infra-cdk/SKILL.md`](../.cursor/skills/infra-cdk/SKILL.md)
+- Skill: [`.cursor/skills/infra-cdk/SKILL.md`](../.cursor/skills/infra-cdk/SKILL.md), [`.cursor/skills/greengrass-local-dev/SKILL.md`](../.cursor/skills/greengrass-local-dev/SKILL.md)
 - Deprecation rule: [`.cursor/rules/aws-iot-avoid-deprecated.mdc`](../.cursor/rules/aws-iot-avoid-deprecated.mdc)
