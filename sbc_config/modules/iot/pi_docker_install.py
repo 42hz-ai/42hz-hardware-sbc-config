@@ -24,8 +24,14 @@ def _decode_out(data: bytes | None) -> str:
 def classify_install_failure_stderr(
     stderr: bytes | None, stdout: bytes | None
 ) -> str | None:
-    """Return hint key for common failures (*ssh-auth*, *missing-host*) else ``None``."""
+    """Return hint key for common failures (*ssh-auth*, *sudo*, *host*, *net*) else ``None``."""
     blob = (_decode_out(stderr) + _decode_out(stdout)).lower()
+    if "sudo:" in blob and (
+        "password is required" in blob
+        or "no tty present" in blob
+        or "a terminal is required" in blob
+    ):
+        return "sudo_noninteractive"
     if "permission denied" in blob and (
         "publickey" in blob or "keyboard-interactive" in blob or "password" in blob
     ):

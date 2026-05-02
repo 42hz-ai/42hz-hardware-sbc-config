@@ -1,0 +1,10 @@
+# iot-runner compose uses repo root as context; keep uploads small.
+# Aligns broadly with sbc_config.modules.iot.defaults.SYNC_RSYNC_EXCLUDES.
+
+.cache/
+.git/
+.venv/
+infra/cdk/cdk.out/
+**/__pycache__/
+*.pyc
+.cursor/

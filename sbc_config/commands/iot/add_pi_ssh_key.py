@@ -87,7 +87,10 @@ def add_pi_ssh_key_command(
     public key via base64 in a remote shell command so stdin stays free for
     OpenSSH interactive prompts.
 
-    Ref: Debian ``ssh-copy-id``, OpenSSH ``authorized_keys`` format.
+    Prefer ``ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519`` so ``ssh`` picks the key
+    with no ``~/.ssh/config``. Ref: Debian ``ssh-copy-id``, OpenSSH ``authorized_keys``.
+    Non-standard private key filenames need ``IdentityFile`` in ``~/.ssh/config``
+    (same account as ``uv run sbc``); see ``infra/docker/iot-runner/README.md`` §1.
     """
     console = ctx.obj["console"]
     try:

@@ -13,3 +13,6 @@ node_modules
 
 # Imaging artifacts (downloaded images, decompressed .img)
 .cache
+
+# Operator PEM bundle (`sbc iot fetch-credentials`); never commit device keys
+aws-iot-bundle/

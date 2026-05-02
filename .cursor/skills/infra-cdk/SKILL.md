@@ -50,7 +50,7 @@ CDK dependencies live in the **`cdk`** optional extra of the **root** `pyproject
 **Operational one-liners** (from repo root):
 
 ```bash
-uv sync --extra cdk
+uv sync --all-extras
 aws sso login --profile spikes-sitewise --use-device-code
 export AWS_PROFILE=spikes-sitewise
 cd infra/cdk
@@ -126,4 +126,4 @@ See **[`doc-create`](../doc-create/SKILL.md)** for the full naming convention. F
 - [ ] **`SBCC-INFRA-0001`** updated when any of the items in _Living-doc stewardship clause_ change.
 - [ ] **`docs/README.md`** updated (row added or edited for new docs).
 - [ ] If **org/access** assumptions changed, **`IDCTR-INFRA-0001`** in the sibling repo updated.
-- [ ] CDK Python deps live in root **`pyproject.toml [project.optional-dependencies] cdk`**; install via `uv sync --extra cdk`.
+- [ ] CDK Python deps live in root **`pyproject.toml [project.optional-dependencies] cdk`**; local dev: `uv sync --all-extras` (minimal / CI-only: `uv sync --extra cdk`).

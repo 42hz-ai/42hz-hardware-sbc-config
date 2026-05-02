@@ -76,6 +76,18 @@ from sbc_config.modules.iot.pi_sync import sync_bundle, sync_repo
     is_flag=True,
     help="Pass --dry-run to rsync: show what would transfer without moving files.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Rsync verbose: use once for -v, twice for -vv, three times for -vvv (live output).",
+)
+@click.option(
+    "--progress/--no-progress",
+    "show_progress",
+    default=False,
+    help="Show overall rsync transfer progress (--info=progress2; live on stderr).",
+)
 @click.pass_context
 def sync_to_pi_command(
     ctx: click.Context,
@@ -87,6 +99,8 @@ def sync_to_pi_command(
     skip_repo: bool,
     skip_bundle: bool,
     dry_run: bool,
+    verbose: int,
+    show_progress: bool,
 ) -> None:
     """Rsync the repo checkout and PEM bundle to the Pi over SSH.
 
@@ -102,6 +116,7 @@ def sync_to_pi_command(
         uv run sbc iot fetch-credentials
         uv run sbc iot sync-to-pi --dry-run   # preview
         uv run sbc iot sync-to-pi             # push
+        uv run sbc iot sync-to-pi -v --progress   # live rsync file list + overall %
     """
     console = ctx.obj["console"]
 
@@ -110,6 +125,17 @@ def sync_to_pi_command(
             "[yellow]--skip-repo and --skip-bundle both set — nothing to do.[/yellow]"
         )
         raise click.Abort()
+
+    def rsync_options() -> tuple[tuple[str, ...], bool]:
+        extras: list[str] = []
+        if show_progress:
+            extras.append("--info=progress2")
+        if verbose > 0:
+            extras.append(f"-{'v' * min(verbose, 3)}")
+        tup = tuple(extras)
+        return tup, bool(tup)
+
+    extra_args, inherit_stdio = rsync_options()
 
     dry_label = " [yellow](dry-run)[/yellow]" if dry_run else ""
 
@@ -125,6 +151,8 @@ def sync_to_pi_command(
                 repo_root=repo_root,
                 remote_repo=remote_repo,
                 dry_run=dry_run,
+                extra_args=extra_args,
+                inherit_stdio=inherit_stdio,
             )
             if result.stdout:
                 console.print(result.stdout.decode(errors="replace"))
@@ -154,6 +182,8 @@ def sync_to_pi_command(
                 bundle_dir=bundle_dir if bundle_dir.is_absolute() else None,
                 remote_bundle=remote_bundle,
                 dry_run=dry_run,
+                extra_args=extra_args,
+                inherit_stdio=inherit_stdio,
             )
             if result.stdout:
                 console.print(result.stdout.decode(errors="replace"))

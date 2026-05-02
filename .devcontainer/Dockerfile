@@ -50,6 +50,21 @@ RUN apt-get update && \
   apt-get install -y docker-ce-cli docker-buildx-plugin docker-compose-plugin && \
   rm -rf /var/lib/apt/lists/*
 
+# Install AWS CLI v2 (official bundle matching container arch — amd64 vs arm64).
+# Same pattern as iotea-spike-preston-sitewise: `apt install awscli` is v1 from
+# Debian and lags behind; the bundle tracks AWS’s supported v2 line.
+# Without rebuilding: run `bash .devcontainer/install-aws-cli.sh` (commented steps).
+RUN apt-get update && apt-get install -y unzip less && rm -rf /var/lib/apt/lists/* && \
+  ARCH="$(dpkg --print-architecture)" && \
+  case "$ARCH" in \
+    amd64) AWS_CLI_ZIP="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" ;; \
+    arm64) AWS_CLI_ZIP="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" ;; \
+    *) echo "Unsupported architecture for AWS CLI: $ARCH" >&2 && exit 1 ;; \
+  esac && \
+  curl -fsSL "$AWS_CLI_ZIP" -o /tmp/awscliv2.zip && \
+  unzip -q /tmp/awscliv2.zip -d /tmp && \
+  /tmp/aws/install && \
+  rm -rf /tmp/awscliv2.zip /tmp/aws
 
 ENV UV_LINK_MODE=copy
 

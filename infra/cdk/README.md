@@ -15,15 +15,17 @@ Concise operator card. Full "why / what / how" lives in [**`SBCC-INFRA-0001`**](
 
 ## Prerequisites
 
-- `aws-cdk-lib` + `constructs` from the root `[project.optional-dependencies] cdk` extra:
+- Python deps live in root `pyproject.toml` optional extras. For a full dev venv (CDK **and** ruff/pre-commit hooks), sync everything:
 
   ```bash
-  uv sync --extra cdk
+  uv sync --all-extras
   ```
 
-- `aws` CLI v2 + `cdk` CLI on PATH (devcontainer's Dockerfile installs both).
+  CDK-only (e.g. minimal CI agent): `uv sync --extra cdk`.
+
+- AWS CLI **v2** + `cdk` CLI on PATH (Dockerfile installs both: v2 bundle from awscli.amazonaws.com for amd64/arm64, npm `aws-cdk` global).
 - `~/.aws/config` with `[profile spikes-sitewise]` (start from [`.devcontainer/aws-config.example`](../../.devcontainer/aws-config.example)).
-- Bootstrapped account: `cdk bootstrap aws://<account-id>/us-west-2` once per account.
+- Bootstrapped account: `cdk bootstrap aws://867492128540/us-west-2` once per account (`iotea-workloads-spikes-sitewise`; confirm in SSO if yours differs).
 
 ## Deploy
 

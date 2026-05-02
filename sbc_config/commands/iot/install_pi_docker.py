@@ -131,6 +131,12 @@ def install_pi_docker_command(
             console.print(
                 "[red]SSH failed:[/red] could not reach host (network / firewall)."
             )
+        elif kind == "sudo_noninteractive":
+            console.print(
+                "[red]Remote sudo needs a password[/red] — SSH login worked, but this "
+                "command runs [bold]sudo[/bold] without an interactive TTY, so the Pi "
+                "cannot prompt for your sudo password."
+            )
         else:
             console.print("[red]Remote command failed[/red]")
         if exc.stdout:
@@ -143,10 +149,13 @@ def install_pi_docker_command(
                 "[bold]ssh[/bold] must succeed [bold]without typing a password or "
                 "key passphrase[/bold] (this tool uses "
                 "[bold]-o BatchMode=yes[/bold]). Try [bold]ssh-add[/bold], "
-                "fix [bold]~/.ssh/config[/bold] / [bold]IdentityFile[/bold], or verify "
+                "prefer a standard key ([bold]~/.ssh/id_ed25519[/bold] etc.), or set "
+                "[bold]IdentityFile[/bold] in [bold]~/.ssh/config[/bold] only if the "
+                "key basename is non-standard; verify "
                 f"[bold]{ENV_PI_SSH}[/bold] / --ssh. Interactive password login cannot work here. "
                 "Example:\n\n"
-                f"    ssh {escape(target)}"
+                f"    ssh -o BatchMode=yes {escape(target)}\n\n"
+                "See [bold]infra/docker/iot-runner/README.md[/bold] §1."
             )
         elif kind == "ssh_host":
             console.print("\n[yellow]Hint:[/yellow] Fix the hostname or DNS.")
@@ -154,11 +163,20 @@ def install_pi_docker_command(
             console.print(
                 "\n[yellow]Hint:[/yellow] Ping the Pi, confirm VPN/LAN, firewall."
             )
+        elif kind == "sudo_noninteractive":
+            console.print(
+                "\n[yellow]Hint:[/yellow] On the Pi, allow [bold]passwordless sudo[/bold] "
+                "for your account ([bold]visudo[/bold] + a file under "
+                "[bold]/etc/sudoers.d/[/bold] is safest), then retry. Or use "
+                f"[bold]ssh -t {escape(target)}[/bold] once and run Docker's install "
+                "with an interactive sudo prompt (this command cannot enter a sudo password)."
+            )
         else:
             console.print(
-                "\n[yellow]Hint:[/yellow] Ensure passwordless [bold]sudo[/bold] on the Pi "
-                "for SSH sessions, or run equivalent steps with [bold]ssh -t[/bold] manually. "
-                "[bold]BatchMode=yes[/bold] disables interactive SSH auth — fix SSH first."
+                "\n[yellow]Hint:[/yellow] Inspect the remote output above. Common causes: "
+                "[bold]apt[/bold]/network issues on the Pi, or sudo still prompting for "
+                "a password (enable [bold]NOPASSWD[/bold] sudo or install manually over "
+                "[bold]ssh -t[/bold])."
             )
         raise click.Abort from exc
 

@@ -7,15 +7,20 @@ from pathlib import Path
 import click
 
 from sbc_config.modules.iot.client import build_session
-from sbc_config.modules.iot.credentials import (
-    CAS_SUBDIR,
-    CERT_FILENAME,
-    DEFAULT_OUT_DIR,
-    KEY_FILENAME,
+from sbc_config.modules.iot.credentials import CAS_SUBDIR, CERT_FILENAME, KEY_FILENAME
+from sbc_config.modules.iot.defaults import (
+    ENV_FETCH_OUT_DIR,
+    ENV_IOT_DATA_DIR,
+    HELLO_WORLD_THING_NAME,
+    default_mqtt_bundle_dir,
 )
-from sbc_config.modules.iot.defaults import HELLO_WORLD_THING_NAME
 from sbc_config.modules.iot.endpoint import describe_data_ats_endpoint
 from sbc_config.modules.iot.mqtt5 import publish_once
+
+
+def _mqtt_default_out_dir(*_args: object, **_kwargs: object) -> Path:
+    """Invoke option default with 0-2 args depending on Click version."""
+    return default_mqtt_bundle_dir()
 
 
 @click.command("mqtt-test")
@@ -63,9 +68,13 @@ from sbc_config.modules.iot.mqtt5 import publish_once
 @click.option(
     "--out-dir",
     type=click.Path(path_type=Path, file_okay=False, dir_okay=True, exists=True),
-    default=DEFAULT_OUT_DIR,
-    show_default=True,
-    help="Directory layout used to default --cert/--private-key/--ca.",
+    default=_mqtt_default_out_dir,
+    show_default=False,
+    help=(
+        "Directory layout for default --cert/--private-key/--ca. "
+        f"Default order: {ENV_IOT_DATA_DIR} env (iot-runner compose), "
+        f"then {ENV_FETCH_OUT_DIR}, then /etc/aws-iot."
+    ),
 )
 @click.option(
     "--endpoint",

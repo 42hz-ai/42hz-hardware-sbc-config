@@ -193,7 +193,7 @@ class IotHelloStack(cdk.Stack):
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             description=(
                 "Mint + lifecycle device certs and Secrets Manager PEM bundles. "
-                "GetSecretValue is intentionally NOT granted — only humans/CI "
+                "GetSecretValue is intentionally NOT granted - only humans/CI "
                 "with narrow IAM should read PEMs."
             ),
             managed_policies=[

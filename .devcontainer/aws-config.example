@@ -1,20 +1,22 @@
 # ~/.aws/config example for the 42hz-hardware-sbc-config IoT hello-world stack.
 #
 # Copy to ~/.aws/config (or merge into an existing file).
-# Replace <...> placeholders with real values from the SSO portal.
+# Copy `sso_start_url` from the Preston spike onboarding table — it is org-wide:
+# ../iotea-spike-preston-sitewise/README.md Option B (`aws configure sso`).
 #
-# SSO setup:        ../iotea-infrastructure-identity-center/docs/IDCTR-INFRA-0002-aws-identity-center-cdk.md
+# SSO setup (hub): ../iotea-infrastructure-identity-center/docs/IDCTR-INFRA-0002-aws-identity-center-cdk.md
 # Workload pattern: ../iotea-infrastructure-identity-center/docs/IDCTR-INFRA-0003-workload-cdk-pattern.md
 # Operator runbook: docs/SBCC-INFRA-0001-iot-hello-world-cdk.md
 
 [sso-session iotea]
-sso_start_url = <SSO portal URL from IDCTR-INFRA-0002>
+sso_start_url = https://iotea-ai.awsapps.com/start
 sso_region = us-west-2
 sso_registration_scopes = sso:account:access
 
 [profile spikes-sitewise]
 sso_session = iotea
-sso_account_id = <iotea-workloads-spikes-sitewise account id from SSO portal>
+# Preston README: spikes-sitewise account id (confirm in SSO portal if your access differs).
+sso_account_id = 867492128540
 sso_role_name = AdministratorAccess
 region = us-west-2
 output = json

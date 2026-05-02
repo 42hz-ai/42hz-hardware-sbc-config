@@ -30,7 +30,8 @@ def _rsync(
     excludes: tuple[str, ...] = SYNC_RSYNC_EXCLUDES,
     dry_run: bool = False,
     extra_args: tuple[str, ...] = (),
-) -> subprocess.CompletedProcess[bytes]:
+    inherit_stdio: bool = False,
+) -> subprocess.CompletedProcess[bytes | None]:
     """Run ``rsync -az --delete`` from *source* to *destination*.
 
     ``rsync`` and ``ssh`` must be on the caller's PATH.
@@ -41,9 +42,12 @@ def _rsync(
         excludes: Patterns passed via ``--exclude``.
         dry_run: When ``True`` adds ``--dry-run`` so no files are transferred.
         extra_args: Any additional rsync flags.
+        inherit_stdio: When ``True``, rsync inherits stdout/stderr (live
+            ``--progress`` / ``-v`` output). When ``False``, output is captured.
 
     Returns:
-        ``subprocess.CompletedProcess`` (stdout/stderr captured).
+        ``subprocess.CompletedProcess`` (stdout/stderr captured unless
+        *inherit_stdio*).
 
     Raises:
         subprocess.CalledProcessError: When rsync exits non-zero.
@@ -55,6 +59,8 @@ def _rsync(
         cmd.append("--dry-run")
     cmd.extend(extra_args)
     cmd += [source, destination]
+    if inherit_stdio:
+        return subprocess.run(cmd, check=True)
     return subprocess.run(cmd, capture_output=True, check=True)
 
 
@@ -65,7 +71,9 @@ def sync_repo(
     remote_repo: str = REMOTE_REPO_DEFAULT,
     excludes: tuple[str, ...] = SYNC_RSYNC_EXCLUDES,
     dry_run: bool = False,
-) -> subprocess.CompletedProcess[bytes]:
+    extra_args: tuple[str, ...] = (),
+    inherit_stdio: bool = False,
+) -> subprocess.CompletedProcess[bytes | None]:
     """Rsync the local repo checkout to the Pi.
 
     Syncs ``repo_root/`` (trailing slash → contents only) to
@@ -79,6 +87,8 @@ def sync_repo(
         remote_repo: Destination path on the Pi.
         excludes: Extra exclude patterns (merged with defaults).
         dry_run: Pass through to rsync.
+        extra_args: Extra rsync flags (``-v``, ``--info=progress2``, …).
+        inherit_stdio: Stream rsync to the terminal (use with ``-v`` / progress).
 
     Returns:
         ``subprocess.CompletedProcess`` from rsync.
@@ -86,8 +96,18 @@ def sync_repo(
     target = resolve_pi_ssh(ssh_target)
     root = (repo_root or Path.cwd()).resolve()
     source = str(root) + "/"  # trailing / → sync contents, not directory
-    dest = f"{target}:{Path(remote_repo).expanduser()}"
-    return _rsync(source, dest, excludes=excludes, dry_run=dry_run)
+    # Do not Path.expanduser() here — that uses the *operator* machine's $HOME
+    # (e.g. /root in a devcontainer) and becomes user@pi:/root/sbc-config, which
+    # the Pi login cannot write. Rsync passes "~/…" to the remote for the SSH user.
+    dest = f"{target}:{remote_repo}"
+    return _rsync(
+        source,
+        dest,
+        excludes=excludes,
+        dry_run=dry_run,
+        extra_args=extra_args,
+        inherit_stdio=inherit_stdio,
+    )
 
 
 def sync_bundle(
@@ -97,7 +117,9 @@ def sync_bundle(
     remote_bundle: str = REMOTE_BUNDLE_DEFAULT,
     excludes: tuple[str, ...] = SYNC_RSYNC_EXCLUDES,
     dry_run: bool = False,
-) -> subprocess.CompletedProcess[bytes]:
+    extra_args: tuple[str, ...] = (),
+    inherit_stdio: bool = False,
+) -> subprocess.CompletedProcess[bytes | None]:
     """Rsync the local PEM bundle to the Pi.
 
     Syncs ``bundle_dir/`` (trailing slash → contents only) to
@@ -111,6 +133,8 @@ def sync_bundle(
         remote_bundle: Destination path on the Pi for the PEM bundle.
         excludes: Rsync exclude patterns.
         dry_run: Pass through to rsync.
+        extra_args: Extra rsync flags.
+        inherit_stdio: Stream rsync to the terminal.
 
     Returns:
         ``subprocess.CompletedProcess`` from rsync.
@@ -118,5 +142,12 @@ def sync_bundle(
     target = resolve_pi_ssh(ssh_target)
     local_bundle = (bundle_dir or Path.cwd() / SYNC_DEFAULT_BUNDLE_RELATIVE).resolve()
     source = str(local_bundle) + "/"
-    dest = f"{target}:{Path(remote_bundle).expanduser()}"
-    return _rsync(source, dest, excludes=excludes, dry_run=dry_run)
+    dest = f"{target}:{remote_bundle}"
+    return _rsync(
+        source,
+        dest,
+        excludes=excludes,
+        dry_run=dry_run,
+        extra_args=extra_args,
+        inherit_stdio=inherit_stdio,
+    )

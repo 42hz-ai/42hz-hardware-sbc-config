@@ -129,7 +129,37 @@ cdk deploy       # default thingName = hw-pi-001
 
 For Phase B (17 devices) — copy `infra/cdk/cdk.context.example.json` to `cdk.context.json` and uncomment the 17-name list under `_phaseB_example`.
 
+### Operator laptop → Pi SSH (`sync-to-pi` / `install-pi-docker`)
+
+Those commands shell out to **`ssh user@host`** (sometimes with **`BatchMode=yes`**), with **no `-i`** flag. **Easiest:** use a standard keypair under **`~/.ssh/id_ed25519`** (or **`id_rsa`** / **`id_ecdsa`**). Then **`ssh`**, **`add-pi-ssh-key`**, **`sync-to-pi`**, and **`install-pi-docker`** need no **`~/.ssh/config`**.
+
+Bootstrap the pubkey once with **`sbc iot add-pi-ssh-key`**; use **`--public-key`** only if your default **`id_*.pub`** is wrong. **`ssh-agent`** (**`ssh-add`**) satisfies **`BatchMode`** when the private key uses a passphrase. If your private key lives under a **non-standard filename**, **`IdentityFile`** in **`~/.ssh/config`** (same UID as **`uv run sbc`**) is the fallback — typically unnecessary if you **`ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519`**.
+
+Confirm **`ssh "$SBC_IOT_PI_SSH"`** works without prompting before relying on **`sync-to-pi`** or **`install-pi-docker`**. Field details: **[`infra/docker/iot-runner/README.md`](../infra/docker/iot-runner/README.md)** §1.
+
+### Portable touchpoints (swap the operational loop)
+
+The **Alternative A** path (Docker on Pi — **[`infra/docker/iot-runner/README.md`](../infra/docker/iot-runner/README.md)**) is one way to get PEMs onto hardware. If you replace it with **CI-built images**, **Greengrass deployments**, **fleet provisioning pulls**, etc., **keep these contracts** unless you consciously change CloudFormation / policy / secrets shape too.
+
+| Touchpoint                         | What to preserve                                                                                                                        | Primary locations                                                                                                           |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Thing + principals + policy        | `clientId == thingName`, topic scope **`hello/${thing}/*`**                                                                             | **`infra/cdk/stacks/iot_hello_stack.py`**, § _Per-Thing scoped IoT policy_ below                                            |
+| Secret id + JSON schema            | **`iot/things/<thingName>/credentials`**, **`SecretBundle`** PEM + optional **`iotDataEndpoint`**                                       | **`sbc_config/modules/iot/credentials.py`**, **Lambda CR** (`infra/cdk/lambda/provision_device/`)                           |
+| On-disk PEM layout                 | **`thing-cert.pem`**, **`thing-private.key`**, **`cas/AmazonRootCA{1–4}.pem`**, **`endpoint.txt`** (optional; single ATS hostname line) | **`write_bundle_to_disk()`** in **`sbc_config/modules/iot/credentials.py`**, **`fetch-credentials`** CLI                    |
+| DescribeEndpoint fallback          | ATS **`-ats`** hostname for MQTT TLS                                                                                                    | **`sbc_config/modules/iot/endpoint.py`**, **`mqtt-test`** CLI                                                               |
+| MQTT 5 publisher                   | **`awsiotsdk`** + **`awscrt`**, QoS/clientId aligned with policy                                                                        | **`sbc_config/modules/iot/mqtt5.py`**, **`mqtt_test`** command                                                              |
+| Cert lifecycle order               | Attach → Secret → detach / inactive cert / Secret recovery window                                                                       | **`sbc_config/modules/iot/lifecycle.py`** (shared with Lambda + **`decommission-thing`** CLI)                               |
+| Operator env vars                  | Pi SSH (**`SBC_IOT_PI_SSH`**), PEM out dir (**`SBC_IOT_FETCH_OUT_DIR`**)                                                                | **`sbc_config/modules/iot/defaults.py`**                                                                                    |
+| Container / Alternative A defaults | PEM root from **`IOT_DATA_DIR`** (**`/data/aws-iot`** in **`compose.yaml`**)                                                            | **`default_mqtt_bundle_dir()`**, **`infra/docker/iot-runner/`** (**`Dockerfile`**, **`compose.yaml`**, **`entrypoint.sh`**) |
+| Repo → device file copy            | **`rsync`** excludes (no `.git`/`.venv`/`cdk.out`/**`.cache`/…); remote **`~/sbc-config`**, **`~/iot-data`\*\*                          | **`SYNC_RSYNC_EXCLUDES`** in **`defaults.py`**, **`pi_sync.py`**, **`sync-to-pi`**                                          |
+
+**Alternative-A-specific (not inherent to IoT provisioning):** SSH bootstrap (**`add-pi-ssh-key`**), **`install-pi-docker`**, **`sync-to-pi`** layout, Compose **build context**, **`.dockerignore`**, Dockerfile **layers** (**`uv sync --no-install-project`** caching). Replacing Pi builds does not require rewriting the CDK stack if the **Secrets Manager bundle** and **on-disk layout** stay the same.
+
 ### On the device (Pi)
+
+**Alternative A — Docker (**[`infra/docker/iot-runner/README.md`](../infra/docker/iot-runner/README.md)**)** is the spike default: PEMs live under **`~/iot-data`** on the Pi, bind-mounted into the container (**`IOT_DATA_DIR=/data/aws-iot`**).
+
+**Alternative — CLI on Pi with AWS credentials** — direct install (still documented for engineers who SSO on-device):
 
 ```bash
 sbc iot describe-endpoint
@@ -137,14 +167,16 @@ sudo sbc iot fetch-credentials --thing-name hw-pi-001 --out-dir /etc/aws-iot
 sbc iot mqtt-test --thing-name hw-pi-001
 ```
 
-Resulting on-disk layout:
+Resulting **standard** bundle layout (`--out-dir` may vary):
 
 ```text
-/etc/aws-iot/
+<out-dir>/   # often /etc/aws-iot or ~/iot-data
 ├── cas/{AmazonRootCA1.pem,AmazonRootCA2.pem,AmazonRootCA3.pem,AmazonRootCA4.pem}
 ├── thing-cert.pem
 └── thing-private.key   (mode 0600)
 ```
+
+Replace **`<out-dir>`** above with **`$IOT_DATA_DIR`** inside **`iot-runner`**, **`/etc/aws-iot`** for on-Pi **`sudo`** flows, or **`./aws-iot-bundle`** on the laptop via **`SBC_IOT_FETCH_OUT_DIR`** — same filenames.
 
 **Why CA1–CA4?** AWS IoT serves certs from Amazon Trust Services. Starfield cross-signing ended Aug 2024 — bundling all four roots avoids surprise verification failures during root rotations.
 
@@ -187,7 +219,7 @@ client.publish(mqtt5.PublishPacket(
 
 When we move from "hello world" to actual deployments:
 
-- **Reuse the same device cert.** Greengrass v2 takes the cert + key from `/etc/aws-iot/`.
+- **Reuse the same device cert.** Nucleus needs the Thing’s cert/key in a **readable directory** — same PEM layout this stack writes (**`thing-cert.pem`**, **`thing-private.key`**, etc.); path may be **`/etc/aws-iot`**, **`/greengrass`** vendor layout, image mount (**`/data/aws-iot`**), or systemd-provisioned dirs — adjust policy paths in docs/deployments accordingly.
 - **Widen the IoT policy** with the actions Greengrass v2 needs (token exchange, MQTT, deployments) per the [AWS reference policy](https://docs.aws.amazon.com/greengrass/v2/developerguide/device-auth.html).
 - **Pi 4/5:** default to **`aws.greengrass.Nucleus` v2.17.0**.
 - **Constrained devices:** **`aws.greengrass.NucleusLite` v2.5.0** (<5 MB RAM; subset of features; backwards-compatible v2 APIs).

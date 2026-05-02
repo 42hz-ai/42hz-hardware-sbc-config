@@ -25,6 +25,19 @@ uv run sbc iot add-pi-ssh-key              # ssh-copy-id (may prompt Pi password
 
 Then verify **`ssh "$SBC_IOT_PI_SSH"`** works without typing a password (or **`ssh-add`** your key passphrase).
 
+**Preferred:** use a normal key basename so **`~/.ssh/config` is unnecessary**. Generate one if needed (same account that runs **`uv run sbc`**, often **`root`** inside a devcontainer → **`~` is `/root`**):
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519   # accepts defaults; passphrase optional but then ssh-add before BatchMode jobs
+uv run sbc iot add-pi-ssh-key                # publishes id_ed25519.pub by default (--public-key overrides)
+```
+
+Commands like **`sync-to-pi`** and **`install-pi-docker`** invoke plain **`ssh user@host`** with **`BatchMode=yes`** — they do **not** pass **`-i`**. OpenSSH auto-offers **`~/.ssh/id_ed25519`**, **`id_rsa`**, **`id_ecdsa`** (and **`ssh-agent`** / **`~/.ssh/config`** if present).
+
+If you switched from an old custom keypair, remove its line from **`~/.ssh/authorized_keys`** on the Pi (optional tidy-up) and delete the old private/public files locally once **`ssh`** works without **`-i`**.
+
+**Non-default private key basename only:** if you keep a pair under another filename, add **`IdentityFile`** (and typically **`IdentitiesOnly yes`**) under a **`Host`** block in **`~/.ssh/config`** in **the same environment** as **`uv run sbc`** — see **`ssh_config(5)`**. **`add-pi-ssh-key --public-key …`** can still install whatever **`.pub`** you choose; the private key **`ssh`** offers must match.
+
 Stock Raspberry Pi OS images do not include Docker. Install Docker once per Pi **from your laptop**
 using the repo CLI (streams Docker’s **[get.docker.com](https://get.docker.com/)** convenience
 installer over SSH — see **`sbc iot install-pi-docker --help`** for the curl|sh trust notes):
@@ -37,6 +50,8 @@ uv run sbc iot install-pi-docker             # installs + verifies (passwordless
 ```
 
 If your SSH target is host-only (`~/.ssh/config` alias), add **`--remote-user YOUR_PI_LOGIN`**.
+
+If **`install-pi-docker`** fails with **`sudo: … password is required`**, SSH is fine — allow **NOPASSWD** sudo for your Pi user (**`visudo`** / **`/etc/sudoers.d/`**) or install Docker manually once with **`ssh -t`** and an interactive prompt.
 
 **Auditors / alternatives:** [Docker Engine — Debian](https://docs.docker.com/engine/install/debian/),
 [Linux post-install](https://docs.docker.com/engine/install/linux-postinstall/).
@@ -155,3 +170,5 @@ No changes needed to the image.
 ## 7. Future B+C path (deferred)
 
 When you want to run `fetch-credentials` on the Pi itself (eliminating the laptop copy step), add a `~/.aws:ro` mount to `compose.yaml`, run `aws sso login` on the Pi, and drop the `--skip-bundle` flag from `sync-to-pi` if you still want to push certs from the laptop.
+
+**Portable contracts:** what must stay consistent if this Pi/Docker loop is replaced — CDK Secrets schema, PEM filenames, MQTT policy/topics, **`lifecycle.py`** order — lives in **[SBCC-INFRA-0001 § Portable touchpoints](../../docs/SBCC-INFRA-0001-iot-hello-world-cdk.md#portable-touchpoints-swap-the-operational-loop)**.

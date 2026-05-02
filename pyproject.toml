@@ -27,7 +27,7 @@ notion = ["notion-client>=3.0.0"]
 # fetch-credentials, decommission-thing, list-orphan-certs) work without it.
 iot = ["awsiotsdk>=1.21.0"]
 # Infrastructure-as-code (`infra/cdk/`). One uv.lock at the repo root, deploy
-# via `uv sync --extra cdk && cd infra/cdk && cdk deploy`. See
+# via `uv sync --all-extras` (or `--extra cdk` for CDK-only). See
 # docs/SBCC-INFRA-0001-iot-hello-world-cdk.md for the operator runbook.
 cdk = [
   "aws-cdk-lib>=2.200.0",

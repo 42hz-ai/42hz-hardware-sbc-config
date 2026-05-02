@@ -35,21 +35,26 @@ default to this so they stay aligned without extra flags.
 """
 
 # ---------------------------------------------------------------------------
-# Pi-side remote paths (expanduser at use time)
+# Pi-side remote paths (rsync remote spec; tilde expanded on the Pi)
 # ---------------------------------------------------------------------------
 
 SYNC_DEFAULT_REMOTE_REPO: str = "~/sbc-config"
-"""Default remote repo path on the Pi host (expand with Path.expanduser)."""
+"""Default remote repo path on the Pi (SSH login user's home).
+
+Passed to rsync as ``user@host:~/sbc-config`` — expanded on the Pi, not locally.
+"""
 
 SYNC_DEFAULT_REMOTE_BUNDLE: str = "~/iot-data"
-"""Default remote bundle dir on the Pi host (expand with Path.expanduser).
+"""Default remote bundle dir on the Pi (SSH user's home).
 
 Aligns with the compose.yaml volume mount: ``~/iot-data → /data/aws-iot``.
+Tilde is expanded on the Pi by rsync/SSH, not via the operator's ``$HOME``.
 """
 
 SYNC_RSYNC_EXCLUDES: tuple[str, ...] = (
     ".venv",
     ".git",
+    ".cache/",
     "infra/cdk/cdk.out",
     "__pycache__",
     "*.pyc",
@@ -76,6 +81,11 @@ explicit flag.  Set to ``aws-iot-bundle`` in a dev shell profile to keep
 credentials out of ``/etc``.
 """
 
+ENV_IOT_DATA_DIR: str = "IOT_DATA_DIR"
+"""Env var set by ``iot-runner`` compose: bind mount root for PEMs (typically
+``/data/aws-iot`` inside the container). ``mqtt-test`` prefers this default.
+"""
+
 ENV_SSH_PUBLIC_KEY: str = "SBC_IOT_SSH_PUBLIC_KEY"
 """Env var for the SSH **public** key path (``.pub``).
 
@@ -97,6 +107,19 @@ def default_fetch_out_dir() -> Path:
     """
     raw = os.environ.get(ENV_FETCH_OUT_DIR)
     return Path(raw).expanduser() if raw else _DEFAULT_OUT_DIR
+
+
+def default_mqtt_bundle_dir() -> Path:
+    """Default PEM directory for ``mqtt-test`` (read paths under ``--out-dir``).
+
+    ``$IOT_DATA_DIR`` wins (set in ``infra/docker/iot-runner/compose.yaml`` for
+    the bind mount at ``/data/aws-iot``). Otherwise match ``fetch-credentials``
+    via ``default_fetch_out_dir()``.
+    """
+    raw = os.environ.get(ENV_IOT_DATA_DIR)
+    if raw:
+        return Path(raw).expanduser()
+    return default_fetch_out_dir()
 
 
 def resolve_pi_ssh(explicit: str | None) -> str:

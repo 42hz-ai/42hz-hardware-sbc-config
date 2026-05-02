@@ -150,6 +150,18 @@ class TestClassifyInstallFailure(unittest.TestCase):
             "ssh_host",
         )
 
+    def test_remote_sudo_password_required(self) -> None:
+        self.assertEqual(
+            classify_install_failure_stderr(
+                (
+                    b"sudo: a terminal is required to read the password\n"
+                    b"sudo: a password is required\n"
+                ),
+                None,
+            ),
+            "sudo_noninteractive",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

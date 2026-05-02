@@ -12,14 +12,14 @@ uv run sbc hello greet
 
 The CLI uses **Click** with mirrored `commands/` and `modules/`. See `.cursor/skills/cli-structure/SKILL.md` in Cursor.
 
-The devcontainer installs dependencies and tooling on first open.
+The devcontainer installs Node 22, **AWS CLI v2** (official bundle; same installer pattern as the Preston SiteWise spike), global `aws-cdk`, Prettier, and imaging tools on first open.
 
 ## Infrastructure / CDK
 
 AWS-side IoT provisioning lives in [`infra/cdk/`](infra/cdk/). One stack mints a per-Thing certificate via a custom-resource Lambda, stores the PEM bundle in Secrets Manager, and binds it to a per-Thing-scoped IoT policy. The CLI (`sbc iot`) shares the cert lifecycle code with the Lambda — see [`docs/SBCC-INFRA-0001-iot-hello-world-cdk.md`](docs/SBCC-INFRA-0001-iot-hello-world-cdk.md).
 
 ```bash
-uv sync --extra cdk
+uv sync --all-extras
 cp .devcontainer/aws-config.example ~/.aws/config   # first time only
 aws sso login --profile spikes-sitewise --use-device-code
 export AWS_PROFILE=spikes-sitewise

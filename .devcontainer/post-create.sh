@@ -50,7 +50,9 @@ if grep -q 'ZSH_THEME="devcontainers"' ~/.zshrc; then
 fi
 
 # Continue with the rest of the setup
-uv sync --extra lint --extra dev
+# One venv with all optional extras (CDK, lint, dev, mqtt/iot, notion) so hooks
+# and `cdk`/ruff work without a second `uv sync`.
+uv sync --all-extras
 uv run pre-commit install
 
 # Add aliases to zshrc

@@ -150,8 +150,29 @@ class TestPiSync(unittest.TestCase):
         self.assertTrue(
             source.endswith("/"), "source should end with / for content-only sync"
         )
-        self.assertIn("user@host:", dest)
-        self.assertIn("sbc-config", dest)
+        self.assertEqual(
+            dest,
+            "user@host:~/sbc-config",
+            "remote ~ must not be expanded with operator $HOME (devcontainer is /root)",
+        )
+
+    @patch("sbc_config.modules.iot.pi_sync.subprocess.run")
+    def test_verbose_and_progress_forwarded(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = self._make_completed()
+        with tempfile.TemporaryDirectory() as td:
+            sync_repo(
+                "user@host",
+                repo_root=Path(td),
+                extra_args=("--info=progress2", "-vv"),
+                inherit_stdio=True,
+            )
+
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        self.assertIn("--info=progress2", args)
+        self.assertIn("-vv", args)
+        kwargs = mock_run.call_args[1]
+        self.assertNotIn("capture_output", kwargs)
 
     @patch("sbc_config.modules.iot.pi_sync.subprocess.run")
     def test_sync_bundle_builds_correct_dest(self, mock_run: MagicMock) -> None:
@@ -162,8 +183,7 @@ class TestPiSync(unittest.TestCase):
 
         args = mock_run.call_args[0][0]
         dest = args[-1]
-        self.assertIn("user@host:", dest)
-        self.assertIn("iot-data", dest)
+        self.assertEqual(dest, "user@host:~/iot-data")
 
     @patch("sbc_config.modules.iot.pi_sync.subprocess.run")
     def test_dry_run_flag_injected(self, mock_run: MagicMock) -> None:
@@ -184,6 +204,7 @@ class TestPiSync(unittest.TestCase):
         self.assertIn("--exclude", args)
         self.assertIn(".venv", args)
         self.assertIn(".git", args)
+        self.assertIn(".cache/", args)
 
     def test_sync_repo_raises_without_ssh_target(self) -> None:
         env_without_ssh = {k: v for k, v in os.environ.items() if k != "SBC_IOT_PI_SSH"}
