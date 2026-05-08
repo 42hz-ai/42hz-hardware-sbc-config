@@ -9,7 +9,9 @@ __pycache__/
 .venv
 node_modules
 *.env
+.devcontainer/env.local
 .ruff_cache
+.sbcc/
 
 # Imaging artifacts (downloaded images, decompressed .img)
 .cache
@@ -17,3 +19,6 @@ node_modules
 # Operator PEM bundles (`sbc iot fetch-credentials`); never commit device keys
 aws-iot-bundle/
 aws-iot-bundles/
+
+# Greengrass Docker component image tarball (run infra/docker/greengrass-telemetry/save-artifact.sh)
+components/telemetry-publisher-docker/artifacts/**/*.tar

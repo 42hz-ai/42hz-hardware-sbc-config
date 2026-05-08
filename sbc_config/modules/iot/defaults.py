@@ -109,6 +109,13 @@ no ``--bundle-dir``), and ``mqtt-test`` use this path instead of
 on a Pi, or one shared dir if you intentionally reuse PEMs across Things.
 """
 
+ENV_GREENGRASS_ROOT: str = "SBCC_GREENGRASS_ROOT"
+"""Default Greengrass Nucleus root when ``install-greengrass`` omits ``--greengrass-root``.
+
+The SBCC devcontainer sets this under the repo bind mount (``.sbcc/greengrass/v2``)
+so Docker Engine can bind-mount the IPC socket for ``telemetry-publisher-docker``.
+On the Pi / bare Linux cores, omit the variable to keep ``/greengrass/v2``."""
+
 ENV_IOT_DATA_DIR: str = "IOT_DATA_DIR"
 """Env var set by ``iot-runner`` compose: bind mount root for PEMs (typically
 ``/data/aws-iot`` inside the container). ``mqtt-test`` prefers this default.
@@ -135,6 +142,19 @@ def default_fetch_out_dir() -> Path:
     """
     raw = os.environ.get(ENV_FETCH_OUT_DIR)
     return Path(raw).expanduser() if raw else _DEFAULT_OUT_DIR
+
+
+def default_greengrass_install_root() -> Path:
+    """Return the default Greengrass tree for ``install-greengrass``.
+
+    Priority: ``$SBCC_GREENGRASS_ROOT`` (non-empty string) >
+    ``/greengrass/v2``.
+
+    Expanded with ``expanduser()`` so tilde resolves when operators set HOME-style
+    paths.
+    """
+    raw = os.environ.get(ENV_GREENGRASS_ROOT, "").strip()
+    return Path(raw).expanduser() if raw else Path("/greengrass/v2")
 
 
 def default_mqtt_bundle_dir(thing_name: str | None = None) -> Path:

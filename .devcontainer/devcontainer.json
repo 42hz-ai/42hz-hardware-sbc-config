@@ -60,6 +60,17 @@
 
   "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "containerEnv": {
+    "SBCC_GREENGRASS_ROOT": "/workspaces/${localWorkspaceFolderBasename}/.sbcc/greengrass/v2",
+    "AWS_PROFILE": "spikes-sitewise",
+    "AWS_REGION": "us-west-2",
+    "GG": "/workspaces/${localWorkspaceFolderBasename}/.sbcc/greengrass/v2"
+  },
 
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=sbcc-devcontainer-aws,target=/root/.aws,type=volume",
+    "source=sbcc-devcontainer-greengrass,target=/workspaces/${localWorkspaceFolderBasename}/.sbcc/greengrass/v2,type=volume"
+  ],
   "runArgs": ["--network=host"]
 }

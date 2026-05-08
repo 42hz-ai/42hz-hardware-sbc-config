@@ -1,0 +1,37 @@
+RecipeFormatVersion: "2020-01-25"
+ComponentName: "com.sbc.telemetry-publisher"
+ComponentVersion: "1.0.2"
+ComponentDescription: >
+  Continuously publishes heartbeat telemetry to hello/<thingName>/telemetry via
+  Greengrass IPC (PublishToIoTCore). Runs until SIGTERM. SBCC-INFRA-0003.
+
+ComponentConfiguration:
+  DefaultConfiguration:
+    # Seconds between publishes. Passed as argv[1] to publisher.py.
+    publishIntervalSeconds: "5"
+    # Repo root containing ``.venv`` (``uv sync --extra iot``). Injected into
+    # subprocess env via ``SBCC_REPO_ROOT`` on Run so deps resolve even though
+    # Greengrass uses a POSIX login shell that resets PATH. Override when the
+    # project lives elsewhere on the Pi.
+    sbccRepoRoot: "/workspaces/42hz-hardware-sbc-config"
+    accessControl:
+      aws.greengrass.ipc.mqttproxy:
+        "com.sbc.telemetry-publisher:mqttproxy:1":
+          policyDescription: Allow publish to own hello telemetry topic
+          operations:
+            - aws.greengrass#PublishToIoTCore
+          resources:
+            - hello/+/telemetry
+
+Manifests:
+  - Platform:
+      os: linux
+    Name: linux
+    Lifecycle:
+      # Dependencies live in repo ``.venv`` (see ``iot`` extra in pyproject.toml).
+      # Nucleus runs lifecycle under POSIX ``sh -lc``; login shells load
+      # ``/etc/profile`` which resets PATH, so ``python3`` is usually system Python.
+      # ``publisher.py`` prepends ``repo/.venv/.../site-packages`` once it knows ``SBCC_REPO_ROOT``
+      # (exported here via configuration interpolation).
+      Run: >-
+        SBCC_REPO_ROOT="{configuration:/sbccRepoRoot}" python3 {artifacts:path}/publisher.py {configuration:/publishIntervalSeconds}

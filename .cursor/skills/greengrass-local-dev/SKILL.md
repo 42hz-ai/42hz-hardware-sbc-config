@@ -24,10 +24,12 @@ disable-model-invocation: true
 When editing any of the following, update **`docs/SBCC-INFRA-0003-greengrass-local-dev-loop.md`** in the **same change**:
 
 - `components/` — recipe layout, `ComponentName` / version, `Lifecycle`, artifact conventions.
+- `infra/docker/greengrass-telemetry/` — Docker IPC telemetry image, `save-artifact.sh`, Dockerfile / `publisher.py` (keep tarball tag + recipe `docker run` image ref in sync when bumping versions).
 - `sbc_config/modules/iot/greengrass_install.py` — Nucleus zip URL, **Nucleus version default**, installer `java` invocation (without systemd: **background JVM** after launch; **`sbcc-nucleus-install.log`**), `deploy_greengrass_cli_component` behavior.
-- `sbc_config/commands/iot/install_greengrass.py` — CLI flags (`--foreground`, **`--reinstall`**), optional env **`SBC_IOT_GG_TES_ROLE_ALIAS`**, operator messaging.
+- `sbc_config/commands/iot/install_greengrass.py` — CLI flags (`--foreground`, **`--reinstall`**), **`--greengrass-root`**, optional env **`SBC_IOT_GG_TES_ROLE_ALIAS`**, default root from **`SBCC_GREENGRASS_ROOT`** when set, operator messaging.
 - `infra/cdk/stacks/iot_hello_stack.py` — **Greengrass-related IoT policy** statements (Connect `client/<thing>*`, shadow/job/health topics, `greengrass:*` actions), **default TES** (IAM role + `AWS::IoT::RoleAlias`), **`CfnOutput` `GreengrassTokenExchangeRoleAlias`**, optional `AssumeRoleWithCertificate` when context **`greengrassTokenExchangeRoleAlias`** is set or TES is CDK-managed; context **`createGreengrassTokenExchangeRole`** to skip managed TES.
-- `.devcontainer/Dockerfile` — **Java** package or version for Nucleus.
+- `.devcontainer/Dockerfile` — **Java** package or version for Nucleus; **`docker-ce-cli`** / **buildx** for Greengrass telemetry image builds.
+- `.devcontainer/devcontainer.json` — **`containerEnv`**: **`SBCC_GREENGRASS_ROOT`**, **`AWS_PROFILE`** / **`AWS_REGION`** (workspace SSO defaults per INFRA), **`GG`** (= GG root path); **`mounts`** as in INFRA (`sbcc-devcontainer-greengrass`, `sbcc-devcontainer-aws`, `docker.sock`); **`runArgs`** (`--network=host`).
 - `infra/cdk/cdk.json` / `cdk.context.example.json` — default **`thingNames`** (e.g. `hw-devcontainer-001`) or Greengrass context keys.
 
 Also **`docs/README.md`** when adding a new numbered sibling doc.

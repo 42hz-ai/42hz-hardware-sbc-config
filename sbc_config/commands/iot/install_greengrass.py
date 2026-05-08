@@ -13,6 +13,7 @@ from sbc_config.modules.iot.defaults import (
     DEFAULT_GREENGRASS_TES_ROLE_ALIAS,
     HELLO_WORLD_THING_NAME,
     default_bundle_dir_for_thing,
+    default_greengrass_install_root,
 )
 from sbc_config.modules.iot.greengrass_install import (
     NUCLEUS_VERSION_DEFAULT,
@@ -57,9 +58,12 @@ ENV_TES_ALIAS = "SBC_IOT_GG_TES_ROLE_ALIAS"
 @click.option(
     "--greengrass-root",
     type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
-    default=Path("/greengrass/v2"),
-    show_default="/greengrass/v2",
-    help="Greengrass root path on this machine (matches Nucleus layout).",
+    default=None,
+    help=(
+        "Greengrass root path on this machine (matches Nucleus layout). "
+        "When omitted: $SBCC_GREENGRASS_ROOT if set (devcontainer supplies this "
+        "for Docker IPC workloads), otherwise /greengrass/v2."
+    ),
 )
 @click.option(
     "--nucleus-version",
@@ -111,7 +115,7 @@ def install_greengrass_command(
     thing_name: str,
     tes_role_alias: str | None,
     bundle_dir: Path | None,
-    greengrass_root: Path,
+    greengrass_root: Path | None,
     nucleus_version: str,
     setup_system_service: bool,
     foreground: bool,
@@ -129,6 +133,9 @@ def install_greengrass_command(
     so this command uses the partial-config flow. Install the Greengrass CLI via
     ``--deploy-cli`` (cloud deployment) or the console.
     """
+    if greengrass_root is None:
+        greengrass_root = default_greengrass_install_root()
+
     bundle_eff = (
         bundle_dir
         if bundle_dir is not None
@@ -218,9 +225,11 @@ def install_greengrass_command(
         console.print(f"[green]deploymentId[/green] [bold]{dep_id}[/bold]")
         console.print(
             "[dim]aws.greengrass.Cli installs on the device after Nucleus pulls the "
-            "deployment — /greengrass/v2/bin/greengrass-cli appears when that finishes. "
-            "If you skipped the installer, ensure a Nucleus JVM is still running "
-            "(e.g. pgrep -af Greengrass.jar). Poll status:[/dim]"
+            "deployment — greengrass-cli appears under <greengrass-root>/bin when that "
+            "finishes (see --greengrass-root / $SBCC_GREENGRASS_ROOT). "
+            "If you skipped the installer, "
+            "ensure a Nucleus JVM is still running (e.g. pgrep -af Greengrass.jar). "
+            "Poll status:[/dim]"
         )
         console.print(
             f"[dim]  aws greengrassv2 get-deployment --deployment-id {dep_id}[/dim]"

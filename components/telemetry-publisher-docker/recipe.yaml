@@ -1,0 +1,62 @@
+RecipeFormatVersion: "2020-01-25"
+ComponentName: "com.sbc.telemetry-publisher-docker"
+ComponentVersion: "1.0.1"
+ComponentPublisher: "42Hz"
+ComponentDescription: >
+  Docker IPC telemetry heartbeat to hello/<thingName>/telemetry (PublishToIoTCore).
+  Image loaded from tarball per AWS local-artifact pattern. SBCC-INFRA-0003.
+  SBCC devcontainer (OrbStack / forwarded docker.sock): set DefaultConfiguration merge
+  key sbccGgIpcDockerVolume to the Docker volume name backing SBCC_GREENGRASS_ROOT so
+  docker run binds IPC via docker volume (-v NAME:/path) instead of a host filepath.
+
+ComponentDependencies:
+  aws.greengrass.DockerApplicationManager:
+    VersionRequirement: ">=2.0.0 <3.0.0"
+
+ComponentConfiguration:
+  DefaultConfiguration:
+    publishIntervalSeconds: "5"
+    # Empty on Pi/production: lifecycle bind-mounts the nucleus IPC socket by path (AWS default).
+    # SBCC devcontainer + OrbStack: merge "sbcc-devcontainer-greengrass" via local deployment
+    # --update-config so docker run mounts the nucleus data volume by name (daemon-visible).
+    sbccGgIpcDockerVolume: ""
+    accessControl:
+      aws.greengrass.ipc.mqttproxy:
+        "com.sbc.telemetry-publisher-docker:mqttproxy:1":
+          policyDescription: Allow publish to own hello telemetry topic
+          operations:
+            - aws.greengrass#PublishToIoTCore
+          resources:
+            - hello/+/telemetry
+
+Manifests:
+  - Platform:
+      os: linux
+    Name: linux
+    Lifecycle:
+      install:
+        RequiresPrivilege: true
+        Script: docker load -i {artifacts:path}/telemetry-publisher-docker.tar
+      Run:
+        RequiresPrivilege: true
+        Script: |
+          IPC_VOL="{configuration:/sbccGgIpcDockerVolume}"
+          if [ -n "$IPC_VOL" ]; then
+            docker run \
+              -v "${IPC_VOL}:/sbcc-gg-ipc" \
+              -e SVCUID \
+              -e AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT=/sbcc-gg-ipc/ipc.socket \
+              -e AWS_IOT_THING_NAME \
+              --rm \
+              sbcc/greengrass-telemetry:1.0.0 \
+              {configuration:/publishIntervalSeconds}
+          else
+            docker run \
+              -v $AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT:$AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT \
+              -e SVCUID \
+              -e AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT \
+              -e AWS_IOT_THING_NAME \
+              --rm \
+              sbcc/greengrass-telemetry:1.0.0 \
+              {configuration:/publishIntervalSeconds}
+          fi

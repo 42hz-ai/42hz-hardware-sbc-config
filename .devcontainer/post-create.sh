@@ -55,6 +55,32 @@ fi
 uv sync --all-extras
 uv run pre-commit install
 
+# ~/.zshrc is recreated on each devcontainer rebuild; repopulate persisted bits by marker match.
+SBCC_HIST_REL=".sbcc/terminal/zsh_history"
+mkdir -p "${PWD}/${SBCC_HIST_REL%/*}"
+touch "${PWD}/${SBCC_HIST_REL}"
+SBCC_HIST_ABS="${PWD}/${SBCC_HIST_REL}"
+HIST_MARKER="# SBCC: persisted zsh history (workspace)"
+if [[ -f ~/.zshrc ]] && ! grep -Fq "${HIST_MARKER}" ~/.zshrc 2>/dev/null; then
+    printf '\n%s\nexport HISTFILE=%q\nexport HISTSIZE=50000 SAVEHIST=50000\n' \
+        "${HIST_MARKER}" "${SBCC_HIST_ABS}" >> ~/.zshrc
+fi
+
+# Optional `.devcontainer/env.local` — copy from `env.local.sample`; gitignored exports that survive rebuilds.
+ENV_MARKER="# SBCC: workspace .devcontainer/env.local (optional)"
+if [[ -f ~/.zshrc ]] && ! grep -Fq "${ENV_MARKER}" ~/.zshrc 2>/dev/null; then
+    cat >>~/.zshrc <<'SBCC_ENV_SNIP'
+
+# SBCC: workspace .devcontainer/env.local (optional)
+if sbcc_git_root="$(git rev-parse --show-toplevel 2>/dev/null)" && [[ -n "${sbcc_git_root}" ]] && [[ -r "${sbcc_git_root}/.devcontainer/env.local" ]]; then
+    # shellcheck source=/dev/null
+    source "${sbcc_git_root}/.devcontainer/env.local"
+fi
+unset -v sbcc_git_root
+
+SBCC_ENV_SNIP
+fi
+
 # Add aliases to zshrc
 printf "\nalias ll='ls -lahSr --color=auto'\n" >> ~/.zshrc
 
